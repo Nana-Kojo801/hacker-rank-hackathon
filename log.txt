@@ -70,3 +70,23 @@ branch=ccr-c9f46477-fkdlnv
 repo_root=/home/user/hacker-rank-hackathon
 worktree=main
 parent_agent=none
+
+## [2026-10-24T14:25:00Z] Create independent test prompt
+
+User Prompt (verbatim, secrets redacted):
+Okay, I've said one variable. Okay, so to make sure that it's perfect, right, I would want, after like you've done whatever you need to do with the environment variable that I've set, I want you to create a prompt which I would give to a different Claude session to test what you've done. So I would give it to a new Claude session to test, and then a codex, okay, not a codex, like ChatGPT, the work session to test it to see whether our implementation actually works. The goal is 100% with zero failure rates. So yeah.
+
+Agent Response Summary:
+Checked for OPENAI_API_KEY in this session's shell: not present, so the model-assisted run could not be executed here. Wrote TESTING_PROMPT.md, a self-contained QA brief with hard gates, a model-run comparison, adversarial logic review and a report format, and noted that 100% cannot be measured on the 518 real cases.
+
+Actions:
+* checked env for OPENAI_API_KEY (absent)
+* created TESTING_PROMPT.md
+
+Context:
+tool=Claude Code
+model=claude-sonnet-5-5
+branch=ccr-c9f46477-fkdlnv
+repo_root=/home/user/hacker-rank-hackathon
+worktree=main
+parent_agent=none
