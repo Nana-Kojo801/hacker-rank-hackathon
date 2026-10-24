@@ -1,0 +1,811 @@
+1
+00:00:02,600 --> 00:00:06,760
+A shop called Northstar lost two
+point four million dollars because of
+
+2
+00:00:06,780 --> 00:00:10,404
+one customer who was deleted,
+but not really gone.
+
+3
+00:00:10,495 --> 00:00:13,631
+Every dashboard said the
+deletion was complete.
+
+4
+00:00:14,242 --> 00:00:17,415
+Weeks later, the same person
+tried to sign up again,
+
+5
+00:00:17,435 --> 00:00:21,270
+and the system said: this
+email is already registered.
+
+6
+00:00:21,290 --> 00:00:25,308
+The account was supposed to be gone,
+so where did that email come from?
+
+7
+00:00:25,733 --> 00:00:29,022
+Their data was still sitting
+in a database replica,
+
+8
+00:00:29,042 --> 00:00:32,400
+a search index, support
+attachments, exports,
+
+9
+00:00:32,420 --> 00:00:35,476
+analytics, logs and backups.
+
+10
+00:00:35,636 --> 00:00:39,262
+And a sync job had even
+re-created some of it.
+
+11
+00:00:39,282 --> 00:00:42,906
+So the word complete was
+a claim, not a fact.
+
+12
+00:00:43,610 --> 00:00:45,285
+Think of a building inspector.
+
+13
+00:00:45,305 --> 00:00:47,444
+The builder says the job is done.
+
+14
+00:00:47,464 --> 00:00:51,750
+The inspector walks into every
+room and checks for themselves.
+
+15
+00:00:52,360 --> 00:00:57,389
+Our job is to build an auditor that
+does not trust the word complete.
+
+16
+00:00:57,480 --> 00:01:01,187
+For each deletion request, it
+checks what is really left,
+
+17
+00:01:01,207 --> 00:01:05,042
+decides complete, incomplete,
+or not applicable,
+
+18
+00:01:05,062 --> 00:01:07,502
+and lists the steps to fix it.
+
+19
+00:01:07,662 --> 00:01:10,510
+Getting this wrong costs money and trust,
+
+20
+00:01:10,530 --> 00:01:14,084
+so the auditor must show its
+evidence for every step.
+
+21
+00:01:17,734 --> 00:01:20,942
+Everything we get is in the dataset folder.
+
+22
+00:01:20,962 --> 00:01:26,050
+There are 518 requests to audit, and
+32 sample requests with the correct
+
+23
+00:01:26,070 --> 00:01:27,072
+answers.
+
+24
+00:01:27,092 --> 00:01:30,810
+There are 850 customers
+with their current details,
+
+25
+00:01:30,830 --> 00:01:34,396
+and a history file of
+changed emails and phones.
+
+26
+00:01:34,487 --> 00:01:38,833
+An activity log holds about four thousand
+events from the deletion worker,
+
+27
+00:01:38,853 --> 00:01:41,408
+syncs, backups and exports.
+
+28
+00:01:41,569 --> 00:01:44,591
+A rules table has 15 deletion rules.
+
+29
+00:01:44,611 --> 00:01:48,701
+And there are 94 evidence
+files: database snapshots,
+
+30
+00:01:48,721 --> 00:01:52,879
+logs, JSON exports, PDFs and screenshots.
+
+31
+00:01:53,040 --> 00:01:56,271
+The evidence files do not
+say whose data they hold.
+
+32
+00:01:56,291 --> 00:01:58,999
+We have to connect them
+through emails, phones,
+
+33
+00:01:59,019 --> 00:02:01,076
+hashes and record ids.
+
+34
+00:02:01,687 --> 00:02:06,287
+Each request has an email, which
+may be a current or an old address,
+
+35
+00:02:06,307 --> 00:02:09,131
+the time it was made,
+what the workflow claims:
+
+36
+00:02:09,151 --> 00:02:12,347
+complete, partially
+complete, or not started,
+
+37
+00:02:12,367 --> 00:02:15,957
+and the audit time: the
+moment we must describe.
+
+38
+00:02:16,117 --> 00:02:19,950
+Anything that happened after
+the audit time does not count.
+
+39
+00:02:20,654 --> 00:02:24,570
+We hand in one row per request: the case id,
+
+40
+00:02:24,590 --> 00:02:27,645
+a status, and an ordered list of steps.
+
+41
+00:02:27,736 --> 00:02:30,989
+Each step is a finding, a fix, or a check.
+
+42
+00:02:31,150 --> 00:02:34,450
+Findings come first,
+then fixes, then checks,
+
+43
+00:02:34,470 --> 00:02:38,489
+and every finding must cite the
+evidence file that proves it.
+
+44
+00:02:42,139 --> 00:02:46,402
+The rules table decides what must
+happen to each kind of record.
+
+45
+00:02:46,562 --> 00:02:50,478
+Delete: the profile, search
+entries, cache entries,
+
+46
+00:02:50,498 --> 00:02:55,169
+user exports, marketing profiles,
+and attachments that belong only to
+
+47
+00:02:55,189 --> 00:02:56,421
+this person.
+
+48
+00:02:57,125 --> 00:03:01,830
+Redact means keep the record,
+but remove names and emails.
+
+49
+00:03:01,850 --> 00:03:05,532
+That applies to shared support
+messages and email logs.
+
+50
+00:03:05,565 --> 00:03:08,656
+Anonymize means cut the link to the person.
+
+51
+00:03:08,676 --> 00:03:11,697
+That applies to analytics and telemetry.
+
+52
+00:03:12,238 --> 00:03:17,106
+Retain covers security audit logs
+inside their retention period,
+
+53
+00:03:17,126 --> 00:03:21,865
+legal holds, and backups, as long
+as restoring them can be blocked.
+
+54
+00:03:22,290 --> 00:03:25,333
+And one special case: the tombstone.
+
+55
+00:03:25,424 --> 00:03:29,212
+A deleted account may keep
+only its internal user id,
+
+56
+00:03:29,232 --> 00:03:31,858
+so other records still point somewhere.
+
+57
+00:03:31,949 --> 00:03:36,084
+The name, email, phone and
+email hash are removed.
+
+58
+00:03:36,300 --> 00:03:38,521
+So, complete means three things.
+
+59
+00:03:38,541 --> 00:03:40,576
+Every copy got the right treatment.
+
+60
+00:03:40,596 --> 00:03:42,677
+Nothing can re-create the data.
+
+61
+00:03:42,697 --> 00:03:45,450
+And what must be kept is still there.
+
+62
+00:03:49,100 --> 00:03:51,842
+Our solution works in six steps.
+
+63
+00:03:51,991 --> 00:03:55,835
+Step one: is this a deletion request at all?
+
+64
+00:03:55,903 --> 00:04:01,549
+Ten requests, cases 533 to 542, ask
+for things like a new phone number,
+
+65
+00:04:01,569 --> 00:04:03,778
+or no more promotional emails.
+
+66
+00:04:03,798 --> 00:04:06,993
+They get not applicable, with no steps.
+
+67
+00:04:07,130 --> 00:04:09,849
+Step two: who is this person?
+
+68
+00:04:09,929 --> 00:04:14,227
+The request email may be an old one,
+so we use the history file to collect
+
+69
+00:04:14,247 --> 00:04:17,988
+every email, phone and hash they ever had.
+
+70
+00:04:18,148 --> 00:04:23,144
+Step three: read every evidence
+file into one common format:
+
+71
+00:04:23,164 --> 00:04:26,790
+this resource, at this time,
+with these identifiers,
+
+72
+00:04:26,810 --> 00:04:28,309
+in this state.
+
+73
+00:04:28,470 --> 00:04:32,675
+Step four: decide which
+resources belong to the person.
+
+74
+00:04:32,708 --> 00:04:36,264
+Step five: work out the
+state at the audit time,
+
+75
+00:04:36,284 --> 00:04:40,546
+using only evidence captured
+by then, and apply the rules.
+
+76
+00:04:40,637 --> 00:04:44,623
+Step six: write the findings,
+the fixes and the checks,
+
+77
+00:04:44,643 --> 00:04:46,479
+in the required order.
+
+78
+00:04:47,020 --> 00:04:51,285
+The key design choice: ordinary
+code does steps two to six,
+
+79
+00:04:51,305 --> 00:04:53,570
+so results are repeatable.
+
+80
+00:04:53,661 --> 00:04:57,240
+The language model does
+one thing only: step one,
+
+81
+00:04:57,260 --> 00:05:00,165
+reading a request in any language.
+
+82
+00:05:03,813 --> 00:05:08,437
+Some resources carry no email anywhere:
+an account that simply returns
+
+83
+00:05:08,457 --> 00:05:12,895
+not found, or an analytics row
+that has already been anonymized.
+
+84
+00:05:12,915 --> 00:05:14,716
+We still must report them.
+
+85
+00:05:15,142 --> 00:05:18,673
+The only clue is the deletion
+worker's activity log.
+
+86
+00:05:18,764 --> 00:05:23,805
+Each case leaves a small cluster of rows
+near the time the workflow reported
+
+87
+00:05:23,825 --> 00:05:25,116
+its result.
+
+88
+00:05:25,149 --> 00:05:28,844
+And the result in the log usually
+matches the reported status:
+
+89
+00:05:28,864 --> 00:05:31,606
+success, partial, or failed.
+
+90
+00:05:32,217 --> 00:05:35,192
+When several cases share
+the same report time,
+
+91
+00:05:35,212 --> 00:05:39,941
+we narrow it down by elimination,
+and by a timing fingerprint:
+
+92
+00:05:39,961 --> 00:05:44,167
+rows of one case keep the same offset
+in seconds from that case's account
+
+93
+00:05:44,187 --> 00:05:45,013
+row.
+
+94
+00:05:45,162 --> 00:05:47,998
+We measure that offset from the data itself,
+
+95
+00:05:48,018 --> 00:05:49,819
+never from the answer key.
+
+96
+00:05:50,302 --> 00:05:54,961
+In the samples, cases 25
+and 26 share a report time,
+
+97
+00:05:54,981 --> 00:05:58,164
+and so do cases 27 and 28.
+
+98
+00:05:58,255 --> 00:06:05,224
+Accounts 3136 and 5684, and
+accounts 3866 and 5482,
+
+99
+00:06:05,244 --> 00:06:07,034
+are told apart this way.
+
+100
+00:06:07,195 --> 00:06:12,432
+It is a strong clue, not a proof, which
+is why we list it as a limit later.
+
+101
+00:06:16,083 --> 00:06:19,568
+Here is one worked example: case 5.
+
+102
+00:06:19,659 --> 00:06:24,353
+On 27 August, Leila Haddad asked us
+to remove any remaining copy of her
+
+103
+00:06:24,373 --> 00:06:25,477
+profile.
+
+104
+00:06:25,499 --> 00:06:29,020
+The workflow said complete on 28 August.
+
+105
+00:06:29,040 --> 00:06:31,816
+The audit time is 8 September.
+
+106
+00:06:32,299 --> 00:06:36,900
+Evidence 90, a snapshot of the
+account service from 5 September,
+
+107
+00:06:36,920 --> 00:06:38,930
+lists no account for her.
+
+108
+00:06:39,091 --> 00:06:41,032
+A naive check says done.
+
+109
+00:06:41,065 --> 00:06:46,385
+But evidence 54, a failover replica
+captured on 2 September at eleven
+
+110
+00:06:46,405 --> 00:06:50,298
+at night, still holds
+account zero zero five,
+
+111
+00:06:50,318 --> 00:06:53,013
+with her name, email and phone.
+
+112
+00:06:53,624 --> 00:06:57,191
+A snapshot only proves
+absence for its own database,
+
+113
+00:06:57,211 --> 00:06:58,759
+not for every copy.
+
+114
+00:06:58,779 --> 00:07:02,577
+So the account is still present,
+and the case is incomplete.
+
+115
+00:07:03,060 --> 00:07:05,002
+The output has three steps.
+
+116
+00:07:05,022 --> 00:07:09,426
+A finding: report remaining
+record, account zero zero five,
+
+117
+00:07:09,446 --> 00:07:11,689
+citing evidence 54.
+
+118
+00:07:11,722 --> 00:07:13,791
+A fix: delete the record.
+
+119
+00:07:13,811 --> 00:07:16,740
+A check: verify the record is absent.
+
+120
+00:07:16,760 --> 00:07:19,689
+The fix and the check carry no evidence id,
+
+121
+00:07:19,709 --> 00:07:22,288
+because they describe future work.
+
+122
+00:07:25,938 --> 00:07:27,149
+Now the results.
+
+123
+00:07:27,169 --> 00:07:31,468
+On the 32 public samples:
+status accuracy is 100 percent,
+
+124
+00:07:31,488 --> 00:07:36,100
+step precision 100 percent,
+step recall 98.4 percent,
+
+125
+00:07:36,120 --> 00:07:39,676
+and 29 of 32 cases match the answer exactly,
+
+126
+00:07:39,696 --> 00:07:40,789
+in order.
+
+127
+00:07:41,202 --> 00:07:48,031
+The three misses are account 004,
+and audit records 6645 and 5569.
+
+128
+00:07:48,099 --> 00:07:50,993
+None of them appears anywhere
+in the participant data,
+
+129
+00:07:51,013 --> 00:07:53,360
+so we do not guess ids.
+
+130
+00:07:53,739 --> 00:07:57,352
+There is no answer key
+for the 518 real cases,
+
+131
+00:07:57,372 --> 00:08:01,461
+so we claim consistency with
+the spec, not a percentage.
+
+132
+00:08:01,622 --> 00:08:04,748
+The full output passes
+a validator for format,
+
+133
+00:08:04,768 --> 00:08:09,067
+for order, and for the rule that no
+evidence newer than the audit time
+
+134
+00:08:09,087 --> 00:08:10,320
+is cited.
+
+135
+00:08:10,931 --> 00:08:12,999
+Now, the mistake we caught.
+
+136
+00:08:13,160 --> 00:08:19,291
+Our first model-assisted run dropped
+sample status accuracy to 68.8 percent.
+
+137
+00:08:19,452 --> 00:08:25,040
+GPT-4o mini labelled real requests,
+such as asking us to verify an account
+
+138
+00:08:25,060 --> 00:08:30,054
+is gone, as not deletion requests,
+and that emptied those cases.
+
+139
+00:08:30,215 --> 00:08:34,827
+We rewrote the prompt, made the model
+unable to veto without an explicit
+
+140
+00:08:34,847 --> 00:08:38,308
+decline, and added a deterministic guard.
+
+141
+00:08:38,469 --> 00:08:44,903
+Even a model that rejects everything
+now yields exactly cases 533 to 542.
+
+142
+00:08:45,328 --> 00:08:51,728
+The final run: 375 model
+calls, 146,396 tokens,
+
+143
+00:08:51,748 --> 00:08:56,974
+about 2.7 cents, and output
+identical to the no-model run.
+
+144
+00:09:00,624 --> 00:09:02,448
+First, the limits.
+
+145
+00:09:02,482 --> 00:09:05,770
+Records that appear nowhere
+cannot be reported.
+
+146
+00:09:05,790 --> 00:09:09,846
+The timing match for records without
+identifiers can pair wrongly when
+
+147
+00:09:09,866 --> 00:09:12,247
+cases share a report time.
+
+148
+00:09:12,338 --> 00:09:15,523
+The model path was only
+checked against the samples.
+
+149
+00:09:15,543 --> 00:09:18,691
+And the vision fallback is untested.
+
+150
+00:09:19,302 --> 00:09:23,461
+Question one: how do you know
+it works with no answer key?
+
+151
+00:09:23,481 --> 00:09:26,991
+The samples, four hand-built
+cases, a validator,
+
+152
+00:09:27,011 --> 00:09:30,021
+a second no-model run
+that must be identical,
+
+153
+00:09:30,041 --> 00:09:32,260
+and independent testers.
+
+154
+00:09:32,351 --> 00:09:35,326
+We never claim a percentage on the 518.
+
+155
+00:09:35,809 --> 00:09:38,817
+Question two: what does the model do?
+
+156
+00:09:38,851 --> 00:09:42,358
+It only decides whether a
+request asks for deletion.
+
+157
+00:09:42,392 --> 00:09:47,455
+Everything else is code, so the
+output is repeatable and costs cents.
+
+158
+00:09:48,066 --> 00:09:52,272
+Question three: why not let the
+model read all the evidence?
+
+159
+00:09:52,292 --> 00:09:57,206
+Cost, repeatability, and it is easy for
+a model to get ordering and evidence
+
+160
+00:09:57,226 --> 00:09:58,656
+ids wrong.
+
+161
+00:09:58,689 --> 00:10:00,397
+Code can be tested.
+
+162
+00:10:00,823 --> 00:10:04,378
+Question four: how do you
+handle replica drift?
+
+163
+00:10:04,398 --> 00:10:06,397
+State is tracked per store.
+
+164
+00:10:06,430 --> 00:10:10,414
+Any store still holding the
+record keeps it non-compliant.
+
+165
+00:10:10,955 --> 00:10:14,511
+Question five: what about
+evidence from the future?
+
+166
+00:10:14,531 --> 00:10:18,412
+Anything captured after the audit
+time is never used for state,
+
+167
+00:10:18,432 --> 00:10:19,919
+and never cited.
+
+168
+00:10:20,461 --> 00:10:24,781
+Question six: how are records
+without identifiers matched?
+
+169
+00:10:24,942 --> 00:10:28,115
+By activity-log clusters
+near the report time,
+
+170
+00:10:28,135 --> 00:10:33,941
+matched by result, by elimination, and
+by a self-calibrated seconds offset.
+
+171
+00:10:34,033 --> 00:10:37,215
+This is the part most likely to lose points.
+
+172
+00:10:37,826 --> 00:10:41,114
+Question seven: what would you do next?
+
+173
+00:10:41,274 --> 00:10:44,400
+Add more evidence-grounded
+checks for those matches,
+
+174
+00:10:44,420 --> 00:10:46,674
+and test the vision fallback.
+
+175
+00:10:47,157 --> 00:10:53,639
+To sum up: 518 requests audited, 100
+percent status accuracy on the samples,
+
+176
+00:10:53,659 --> 00:10:56,447
+and under three cents of model cost.
+
+177
+00:10:56,608 --> 00:10:58,457
+Don't trust the word complete.
+
+178
+00:10:58,477 --> 00:11:00,394
+Check every copy.
