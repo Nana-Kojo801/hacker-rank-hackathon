@@ -1,0 +1,1 @@
+Transcribe every piece of text visible in this application screenshot, one table row or label per line, keeping identifiers (resource ids such as account_123, e-mail addresses, user_N references) exactly as written. Keep cells of one table row on the same line, separated by ' | '. Output plain text only.

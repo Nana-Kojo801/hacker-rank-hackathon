@@ -1,0 +1,4 @@
+activity_id,event_time,event_type,source_system,target_system,resource_id,reported_result,details
+activity_x1,2026-06-01T10:00:00Z,CHECK_DATA_FLOW,deletion_worker,integration_service,data_flow_9040,SUCCESS,Connector status check.
+activity_x2,2026-06-01T10:05:00Z,CHECK_RESTORE_ACCESS,deletion_worker,backup_service,backup_9040,SUCCESS,Restore check.
+activity_x3,2026-06-01T10:10:00Z,REDACT_RECORD,deletion_worker,identity_service,tombstone_9040,FAILED,Redaction result.

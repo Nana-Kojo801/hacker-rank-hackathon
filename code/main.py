@@ -1,6 +1,10 @@
-"""Ghost Data audit agent.  Usage: python code/main.py [--no-llm] [--samples]
+"""Ghost Data audit agent.
 
-Reads dataset/, writes output.csv at the repository root.
+Usage:
+  python3 code/main.py                 # audit dataset/deletion_requests.csv -> output.csv (repo root)
+  python3 code/main.py --no-llm        # deterministic only (no model calls)
+  python3 code/main.py --samples       # score the 32 public samples against sample_output.csv
+  python3 code/main.py --dataset DIR --output FILE
 """
 import argparse
 import csv
@@ -16,21 +20,22 @@ ROOT = Path(__file__).resolve().parent.parent
 DATASET = ROOT / "dataset"
 
 
-def read(name):
-    with open(DATASET / name, newline="", encoding="utf-8") as f:
+def read(dataset, name):
+    path = dataset / name
+    if not path.exists():
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
-def run(requests, all_cases, use_llm=True):
-    world = solve.load_world(DATASET)
+def run(dataset, requests, all_cases, use_llm=True):
+    """Return output rows (sorted by case_id) for `requests`; `all_cases` is every known request."""
+    world = solve.load_world(dataset)
     solver = solve.Solver(world, all_cases)
     out = []
     for q in sorted(requests, key=lambda r: r["case_id"]):
-        ok, method = classify.authorizes_deletion(q["request_text"], use_llm)
-        if not ok:
-            status, steps = "NOT_APPLICABLE", []
-        else:
-            status, steps = solver.solve(q)
+        ok, _method = classify.authorizes_deletion(q["request_text"], use_llm)
+        status, steps = solver.solve(q) if ok else ("NOT_APPLICABLE", [])
         out.append({"case_id": q["case_id"], "deletion_status": status,
                     "steps_json": json.dumps(steps, separators=(",", ":"), ensure_ascii=False)})
     return out
@@ -45,16 +50,20 @@ def write(rows, path):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--no-llm", action="store_true")
-    ap.add_argument("--samples", action="store_true", help="run the public samples and score them")
+    ap.add_argument("--no-llm", action="store_true", help="skip model calls (deterministic fallbacks only)")
+    ap.add_argument("--samples", action="store_true", help="score the public samples")
+    ap.add_argument("--dataset", type=Path, default=DATASET)
+    ap.add_argument("--output", type=Path, default=ROOT / "output.csv")
     a = ap.parse_args()
-    reqs, samples = read("deletion_requests.csv"), read("sample_deletion_requests.csv")
+    reqs = read(a.dataset, "deletion_requests.csv")
+    samples = read(a.dataset, "sample_deletion_requests.csv")
     if a.samples:
+        sys.path.insert(0, str(Path(__file__).parent / "evaluation"))
         import evaluate
-        rows = run(samples, samples + reqs, not a.no_llm)
-        gold = {r["case_id"]: r for r in read("sample_output.csv")}
+        rows = run(a.dataset, samples, samples + reqs, not a.no_llm)
+        gold = {r["case_id"]: r for r in read(a.dataset, "sample_output.csv")}
         print(json.dumps(evaluate.score({r["case_id"]: r for r in rows}, gold), indent=2))
     else:
-        rows = run(reqs, samples + reqs, not a.no_llm)
-        write(rows, ROOT / "output.csv")
-        print(f"wrote {len(rows)} rows to output.csv")
+        rows = run(a.dataset, reqs, samples + reqs, not a.no_llm)
+        write(rows, a.output)
+        print(f"wrote {len(rows)} rows to {a.output}")

@@ -36,7 +36,7 @@ def ocr_lines(path):
         try:
             from rapidocr_onnxruntime import RapidOCR
         except ImportError:
-            return []
+            return vision_lines(path)
         res, _ = RapidOCR()(str(path))
         items = [{"text": t, "x": b[0][0], "y": b[0][1]} for b, t, _c in (res or [])]
         cache.write_text(json.dumps(items), encoding="utf-8")
@@ -58,6 +58,17 @@ def ocr_lines(path):
         right = " ".join(i["text"] for i in sorted(ln, key=lambda i: i["x"]) if i["x"] >= 1400)
         out += [t for t in (left, right) if t.strip()]
     return out
+
+
+VISION_PROMPT = (Path(__file__).parent / "prompts" / "vision_transcribe.txt").read_text(encoding="utf-8").strip()
+
+
+def vision_lines(path):
+    """Fallback when no OCR engine is installed: ask a vision model to transcribe the screenshot."""
+    import llm
+    if not llm.available():
+        return []
+    return [l.strip() for l in llm.chat_vision(VISION_PROMPT, path).splitlines() if l.strip()]
 
 
 def pdf_lines(path):
