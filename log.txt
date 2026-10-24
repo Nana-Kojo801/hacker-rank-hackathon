@@ -200,6 +200,25 @@ repo_root=/home/user/hacker-rank-hackathon
 worktree=main
 parent_agent=none
 
+## [2026-10-24T16:40:00Z] Write the full project guide for the interview
+
+User Prompt (verbatim, secrets redacted):
+Okay, so the actual thing I want one file detailing the whole project, anything the interviewer will need to know.
+
+Agent Response Summary:
+Wrote PROJECT_GUIDE.md: the problem, data and output contract, the seven-stage architecture and the reason for each design choice, results, the failures found and fixed, known limits, worked examples with real case ids, commands, a 15-question rehearsal list and a numbers cheat sheet. Statements were checked against the repository; unproven claims are labelled.
+
+Actions:
+* created PROJECT_GUIDE.md
+
+Context:
+tool=Claude Code
+model=claude-sonnet-5-5
+branch=ccr-c9f46477-fkdlnv
+repo_root=/home/user/hacker-rank-hackathon
+worktree=main
+parent_agent=none
+
 ## [2026-10-24T17:00:00Z] SESSION START
 
 tool=Claude Code
