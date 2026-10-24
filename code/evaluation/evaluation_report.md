@@ -1,6 +1,6 @@
 # Evaluation report
 
-Generated 2026-10-24 by `code/evaluation/run_evaluation.py` (deterministic mode, no model calls).
+Generated 2026-10-24 by `code/evaluation/run_evaluation.py` (with model calls).
 
 ## 1. Public sample set (32 cases, `dataset/sample_output.csv`)
 
