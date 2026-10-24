@@ -179,7 +179,9 @@ class World:
         conflict = bool(bad) and len(bad) < len(latest)
         if action == "RETAIN":
             best = max(latest.values(), key=lambda e: (e[0], e[1]))
-            return {"action": action, "violated": False, "file": best[2], "obs": best[4], "t": best[0]}
+            late = self.manifest[best[2]]["captured_at"] > audit_at     # only seen after the audit cut-off
+            return {"action": action, "violated": False, "file": "" if late else best[2], "obs": best[4],
+                    "t": best[0]}
         if bad:
             best = max(bad, key=lambda e: (e[0], e[1]))
             return {"action": action, "violated": True, "file": best[2], "obs": best[4], "t": best[0],

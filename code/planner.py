@@ -27,9 +27,9 @@ def plan(states):
     for rid, st in states.items():
         action = st["action"]
         if action == "RETAIN":
-            if st.get("retained", True):
+            if st["file"]:      # a proof step must cite evidence that existed at audit_at
                 proof.append(step("VERIFICATION", "VERIFY_RECORD_PRESENT", rid, st["file"]))
-                verification.append(step("VERIFICATION", "VERIFY_RECORD_PRESENT", rid))
+            verification.append(step("VERIFICATION", "VERIFY_RECORD_PRESENT", rid))
             continue
         f_op, r_op, v_op = TREATMENT[action]
         if st["violated"]:
