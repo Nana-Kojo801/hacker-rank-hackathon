@@ -1,10 +1,8 @@
-"""Case engine: link resources to a subject, reconstruct their state at audit_at, apply policy, emit steps."""
-import csv
-import re
+"""World model: observations + activity -> per-resource compliance state at audit_at."""
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from evidence import PREFIX_SYSTEM, RID_RE, system_of
+from evidence import system_of
 
 TS = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -27,60 +25,71 @@ STATE = {
     "VERIFY_RESTORE_BLOCKED": "BLOCKED",
 }
 
+# required action implied by the operation the deletion worker attempted on a resource
+WORKER_OP_ACTION = {
+    "DELETE_RECORD": "DELETE", "REDACT_RECORD": "REDACT", "ANONYMIZE_RECORD": "ANONYMIZE",
+    "CHECK_DATA_FLOW": "FLOW", "DISABLE_DATA_FLOW": "FLOW",
+    "CHECK_RESTORE_ACCESS": "RESTORE", "BLOCK_RESTORE": "RESTORE", "RETAIN_RECORD": "RETAIN",
+}
+DEFAULT_ACTION = {
+    "account_service": "DELETE", "search_service": "DELETE", "export_service": "DELETE",
+    "support_platform": "REDACT", "analytics_platform": "ANONYMIZE", "integration_service": "FLOW",
+    "backup_service": "RESTORE", "identity_service": "REDACT", "security_service": "RETAIN",
+    "legal_service": "RETAIN", "marketing_platform": "DELETE", "object_storage": "DELETE",
+    "cache_service": "DELETE", "email_delivery_service": "REDACT",
+}
+
 
 def truthy(v):
     return str(v).strip().lower() in ("1", "true", "yes", "active", "enabled", "y")
 
 
-def kind_of(o):
-    """Semantic state of one observation: what the record looks like."""
+def facts(o):
+    """Reduce an observation to exists / identifier / flow / restore facts."""
     a = o.attrs
-    s = o.system
     result = str(a.get("result", "")).lower()
-    if s == "account_service":
-        if a.get("profile_null") or str(a.get("status_code", a.get("http_status", ""))) == "404" \
-                or result == "not_found" or str(a.get("rows", "1")) == "0":
-            return "ABSENT"
-        return "PRESENT"
-    if s in ("search_service", "export_service"):
-        if result in ("not_found", "miss") or str(a.get("rows", "1")) == "0":
-            return "ABSENT"
-        return "PRESENT"
-    if s == "support_platform":
-        text = str(a.get("message_text", a.get("message_excerpt", "")))
-        if a.get("storage_class") == "ticket_attachment" or "attachment" in str(a.get("record_type", "")) \
-                or "attachment" in str(a.get("event", "")):
-            return "ATTACH"
-        if result == "redacted" or "[redacted]" in text.lower():
-            return "REDACTED"
-        if result == "identifiable" or o.emails or o.phones or o.names:
-            return "EXPOSED"
-        return "REDACTED"
-    if s == "analytics_platform":
-        if result == "anonymized" or a.get("no_identifier"):
-            return "ANONYMIZED"
-        if result == "identifiable" or o.emails or o.users or o.hashes or o.phones:
-            return "EXPOSED"
-        return "ANONYMIZED"
-    if s == "integration_service":
-        if "enabled" in a:
-            return "ACTIVE" if truthy(a["enabled"]) else "DISABLED"
-        if result:
-            return "ACTIVE" if result == "active" else "DISABLED"
-        return "ACTIVE"
-    if s == "backup_service":
-        if "restore_allowed" in a:
-            return "ALLOWED" if truthy(a["restore_allowed"]) else "BLOCKED"
-        if result:
-            return "ALLOWED" if result == "active" else "BLOCKED"
-        return "ALLOWED"
-    if s == "identity_service":
-        return "EXPOSED" if (o.emails or o.phones or o.hashes or o.names) else "REDACTED"
-    if s == "security_service":
-        return "PRESENT"
-    if s == "legal_service":
-        return "PRESENT"
-    return "PRESENT"
+    code = str(a.get("status_code", a.get("http_status", "")))
+    exists = True
+    if a.get("profile_null") or code == "404" or result in ("not_found", "miss") or str(a.get("rows", "1")) == "0":
+        exists = False
+    direct = bool(o.emails or o.phones or o.hashes or o.names)
+    attrib = bool(direct or o.users)
+    text = str(a.get("message_text", a.get("message_excerpt", ""))).lower()
+    if result in ("anonymized", "redacted") or a.get("no_identifier"):
+        direct = attrib = False
+    elif result == "identifiable":
+        direct = attrib = True
+    if "[redacted]" in text:
+        direct = False
+    enabled = None
+    if "enabled" in a:
+        enabled = truthy(a["enabled"])
+    elif o.system == "integration_service" and result:
+        enabled = result == "active"
+    allowed = None
+    if "restore_allowed" in a:
+        allowed = truthy(a["restore_allowed"])
+    elif "eligible" in a:
+        allowed = truthy(a["eligible"]) and not truthy(a.get("deletion_block", "false"))
+    elif "decision" in a:
+        allowed = str(a["decision"]).lower() != "deny"
+    elif o.system == "backup_service" and result:
+        allowed = result == "active"
+    return {"exists": exists, "direct": direct, "attrib": attrib, "enabled": enabled, "allowed": allowed}
+
+
+def violates(action, f):
+    if action == "DELETE":
+        return f["exists"]
+    if action == "REDACT":
+        return f["exists"] and f["direct"]
+    if action == "ANONYMIZE":
+        return f["exists"] and f["attrib"]
+    if action == "FLOW":
+        return bool(f["enabled"])
+    if action == "RESTORE":
+        return bool(f["allowed"])
+    return False
 
 
 class World:
@@ -92,44 +101,68 @@ class World:
         self.by_rid = defaultdict(list)
         for o in obs:
             self.by_rid[o.rid].append(o)
-        self.ident_index = defaultdict(set)   # identifier -> rids (any time)
+        self.ident_index = defaultdict(set)
         for o in obs:
             for i in o.idents():
                 self.ident_index[i].add(o.rid)
         self.activity = activity_rows
+        self.worker_ops = defaultdict(list)
         for a in activity_rows:
             a["_t"] = P(a["event_time"])
+            if a["source_system"] == "deletion_worker":
+                self.worker_ops[a["resource_id"]].append(a)
 
-    # ---------------------------------------------------------------- linking
-    def linked_rids(self, user, audit_at):
+    def linked_rids(self, user):
         ids = user.emails | user.hashes | {user.user_id} | user.phones
         rids = set()
         for i in ids:
             rids |= self.ident_index.get(i, set())
         return rids
 
-    # ---------------------------------------------------------------- state
-    def timeline(self, rid, audit_at):
-        """List of (t, file_id, kind, obs) events for rid at or before audit_at, ascending."""
-        system = system_of(rid)
-        events = []
-        files_with = set()
-        for o in self.by_rid.get(rid, []):
-            if self.manifest[o.file_id]["captured_at"] > audit_at or o.t > audit_at:
-                continue
-            events.append((o.t, o.file_id, kind_of(o), o))
-            files_with.add(o.file_id)
-        for fid, cov in self.coverage.items():
-            t = cov.get(system)
-            if not t or t > audit_at or fid in files_with or self.manifest[fid]["captured_at"] > audit_at:
-                continue
-            events.append((t, fid, "ABSENT", None))
-        events.sort(key=lambda e: (e[0], 0 if e[3] is None else 1))
-        return events
+    def action_for(self, rid):
+        ops = self.worker_ops.get(rid)
+        if ops:
+            return WORKER_OP_ACTION.get(ops[-1]["event_type"], DEFAULT_ACTION.get(system_of(rid), "DELETE"))
+        return DEFAULT_ACTION.get(system_of(rid), "DELETE")
 
-    def state(self, rid, audit_at):
-        ev = self.timeline(rid, audit_at)
-        if not ev:
+    def store_of(self, o):
+        return (self.manifest[o.file_id]["origin"], o.attrs.get("table", o.system))
+
+    def evaluate(self, rid, requested_at, audit_at, need_explicit=True):
+        """-> dict(action, violated, file, retained_obs) or None when nothing is known."""
+        system = system_of(rid)
+        action = self.action_for(rid)
+        floor = "" if action == "RETAIN" else requested_at
+        events = defaultdict(list)    # store -> [(t, explicit, file, facts, obs)]
+        seen_files = set()
+        for o in self.by_rid.get(rid, []):
+            fid = o.file_id
+            if self.manifest[fid]["captured_at"] > audit_at or o.t > audit_at or o.t < floor:
+                continue
+            events[self.store_of(o)].append((o.t, 1, fid, facts(o), o))
+            seen_files.add(fid)
+        if action != "RETAIN":
+            for fid, cov in self.coverage.items():
+                t = cov.get(system)
+                if not t or t > audit_at or t < floor or fid in seen_files or self.manifest[fid]["captured_at"] > audit_at:
+                    continue
+                f = {"exists": False, "direct": False, "attrib": False, "enabled": False, "allowed": False}
+                events[(self.manifest[fid]["origin"], system)].append((t, 0, fid, f, None))
+        if need_explicit and action != "RETAIN" and not any(e[1] for ev in events.values() for e in ev):
             return None
-        t, fid, kind, o = ev[-1]
-        return {"t": t, "file": fid, "kind": kind, "obs": o}
+        if not events and action == "RETAIN":      # standing retention record: fall back to any sighting
+            for o in self.by_rid.get(rid, []):
+                events[self.store_of(o)].append((o.t, 1, o.file_id, facts(o), o))
+        if not events:
+            return None
+        latest = {s: max(ev, key=lambda e: (e[0], e[1])) for s, ev in events.items()}
+        bad = [e for e in latest.values() if violates(action, e[3])]
+        if action == "RETAIN":
+            best = max(latest.values(), key=lambda e: (e[0], e[1]))
+            return {"action": action, "violated": False, "file": best[2], "obs": best[4], "t": best[0]}
+        if bad:
+            best = max(bad, key=lambda e: (e[0], e[1]))
+            return {"action": action, "violated": True, "file": best[2], "obs": best[4], "t": best[0]}
+        pool = list(latest.values())
+        best = max(pool, key=lambda e: (e[1], e[0]))      # prefer explicit proof over omission
+        return {"action": action, "violated": False, "file": best[2], "obs": best[4], "t": best[0]}

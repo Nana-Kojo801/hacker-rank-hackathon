@@ -1,11 +1,8 @@
 """Case solving glue: identity -> linked resources -> states -> plan."""
 import csv
-import json
-from datetime import timedelta
-from pathlib import Path
 
 import evidence
-from engine import World, P, system_of
+from engine import World
 from identity import IdentityBook
 import planner
 
@@ -17,22 +14,15 @@ def load_world(dataset):
     return World(obs, manifest, cov, acts, IdentityBook(dataset))
 
 
-def retention_ok(audit_at):
-    def check(rid, st):
-        o = st.get("obs")
-        ru = o.attrs.get("retention_until") if o else None
-        return (not ru) or ru >= audit_at
-    return check
+def resources_for(world, q, user):
+    return set(world.linked_rids(user))
 
 
-def solve_case(world, q, extra_rids=()):
+def solve_case(world, q):
     user = world.book.resolve(q["email"])
-    audit_at = q["audit_at"]
-    rids = set(world.linked_rids(user, audit_at)) | set(extra_rids)
     states = {}
-    for rid in rids:
-        st = world.state(rid, audit_at)
+    for rid in resources_for(world, q, user):
+        st = world.evaluate(rid, q["requested_at"], q["audit_at"])
         if st:
             states[rid] = st
-    status, steps = planner.plan(states, audit_at, retention_ok(audit_at))
-    return status, steps
+    return planner.plan(states)

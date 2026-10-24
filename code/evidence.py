@@ -117,6 +117,7 @@ STATE_KEYS = {
     "last_delivery_status", "mode", "state", "reported_state", "legal_hold", "hold_status",
     "expires_at", "mode", "ticket_id", "message_text", "message_excerpt", "attachment",
     "uploaded_by", "storage_class", "audience_cohort", "connector_name", "destination",
+    "eligible", "deletion_block", "decision", "marker_found", "email_opt_in", "last_run",
 }
 
 
@@ -299,6 +300,8 @@ def parse_log(file_id, captured, path):
                 if d.get(k) and d.get(k) != "null":
                     pending.setdefault(trace, []).append(d[k])
         rid = d.get("resource_id")
+        if ev.endswith("_started"):       # a *_started line carries only the lookup key, not a state
+            continue
         if rid and RID_RE.fullmatch(rid):
             o = Obs(file_id, captured, ts, rid, system_of(rid), f"log:{ev}")
             for k, v in d.items():
