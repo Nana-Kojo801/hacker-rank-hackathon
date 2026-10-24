@@ -155,6 +155,14 @@ class Linker:
                 for cid, rid in zip(ids, best):
                     self.account[cid] = rid
                     taken.add(rid)
+        # 3. hand-built cases log their deletion call right at reported_at instead of an hour earlier
+        for q in self.cases:
+            if q["case_id"] in self.account:
+                continue
+            c = self._candidates(q, self.account_rows, (-0.3, 0.3), taken, strict_result=False)
+            if len(c) == 1:
+                self.account[q["case_id"]] = c[0]["resource_id"]
+                taken.add(c[0]["resource_id"])
         self.taken_accounts = taken
 
     def _has_account_link(self, cid):
