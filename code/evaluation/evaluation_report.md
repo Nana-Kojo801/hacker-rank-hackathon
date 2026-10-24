@@ -9,18 +9,18 @@ Generated 2026-10-24 by `code/evaluation/run_evaluation.py` (deterministic mode,
 | cases | 32 |
 | status accuracy | 100.0% |
 | step precision | 100.0% |
-| step recall | 97.9% |
-| step F1 | 99.0% |
-| field accuracy (positional) | 96.5% |
+| step recall | 98.4% |
+| step F1 | 99.2% |
+| field accuracy (positional) | 96.6% |
 | sequence exact match | 90.6% |
-| sequence similarity (order-aware) | 96.6% |
-| steps matched / expected / predicted | 189 / 193 / 189 |
+| sequence similarity (order-aware) | 98.6% |
+| steps matched / expected / predicted | 190 / 193 / 190 |
 
 Definitions: *step precision/recall* compare the set of (phase, system, resource, operation, state, evidence) tuples; *field accuracy* compares each field of the expected step at the same position; *sequence exact match* requires the whole ordered array to be identical; *sequence similarity* is the order-aware ratio of the longest matching subsequence.
 
 ### Remaining differences on the samples
 
-* `case_04` expected COMPLETE, got COMPLETE; missing: VERIFY_RECORD_ABSENT account_004 [evidence_54], VERIFY_RECORD_ANONYMIZED analytics_901 [evidence_56]; extra: none
+* `case_04` expected COMPLETE, got COMPLETE; missing: VERIFY_RECORD_ABSENT account_004 [evidence_54]; extra: none
 * `case_18` expected INCOMPLETE, got INCOMPLETE; missing: VERIFY_RECORD_PRESENT audit_record_6645 [-]; extra: none
 * `case_20` expected INCOMPLETE, got INCOMPLETE; missing: VERIFY_RECORD_PRESENT audit_record_5569 [-]; extra: none
 
@@ -53,3 +53,28 @@ A small synthetic dataset with the same schema, built by `build_custom_cases.py`
 * `x4`: PASS (INCOMPLETE)
 
 <!-- manual -->
+## 3. Failures found and improvements made
+
+The first full pass over the 32 public samples scored **status 93.8%, step recall 75%, sequence exact match 22%**. The
+iterations below (each re-scored on the samples, then re-checked on the 518 requests for structural validity with
+`validate_output.py`) took it to the figures in section 1.
+
+| # | failure found | root cause | improvement |
+| --- | --- | --- | --- |
+| 1 | `REPORT_REMAINING_RECORD` missed for accounts that only survive in a failover replica (case_05) | a later *primary* snapshot that no longer listed the account was treated as proof of absence | state is evaluated **per store** (origin + table/replica); a snapshot is evidence of absence only for its own store, and any store still violating the rule keeps the resource non-compliant |
+| 2 | start-of-lookup log lines (`*_started`) counted as "record exists" | the line carries only the lookup key | `*_started` events only contribute the lookup identifier to the matching `*_completed` line |
+| 3 | wrong evidence file cited (a later bundle whose snapshot did not list the record) | omissions outranked explicit observations | explicit observations are preferred over inferred absence; omissions never apply to retained records |
+| 4 | backups / flows reported compliant | log dialects use `eligible`, `deletion_block`, `decision=deny`, `enabled` instead of one common flag | `facts()` normalises every dialect to *restorable* / *enabled* |
+| 5 | wrong treatment for some records (support contact deleted vs redacted, analytics profile deleted vs anonymised) | the category was guessed from the id prefix | the required action is taken from the operation the deletion worker attempted on that resource (DELETE / REDACT / ANONYMIZE / flow / restore), falling back to the policy default for the prefix |
+| 6 | account `VERIFY_RECORD_ABSENT` and anonymised analytics rows missing in ~half of the cases | those resources carry **no identifier** in any evidence file, only the deletion worker's activity rows | `linking.py`: activity rows near `reported_at` filtered by result-vs-reported-status, elimination across cases, and a self-calibrated sub-minute phase offset shared by the rows of one case (no sample labels used) |
+| 7 | stale account lookups from an earlier request attached to the new request (case_17 vs case_46) | identifier match is time-blind | accounts are pruned to the deletion run around the case's `reported_at`; evidence older than `requested_at` is ignored |
+| 8 | screenshots / PDFs ignored (hand-built cases: connector console, backup console, export console, ticket console, marketing profile, statements) | no OCR path | offline OCR + `pdftotext`, row binding and `LINK_RESOURCE_IDENTITY` catalog links; console semantics (a live connector is enabled, a listed archive is restorable, an attachment page implies an attachment) |
+| 9 | heuristic request triage marked a real deletion request as non-deletion (case_05: "...remove any remaining **copy of** my profile") | over-broad regex | regex narrowed; the model-based classifier is the primary path and the regex only a multilingual fallback |
+| 10 | a retention proof cited evidence captured after `audit_at` (case_46) | fallback to any sighting of the audit record | retention verification keeps the step but drops the evidence id when nothing at/before `audit_at` supports it (rule: never cite later evidence) |
+
+### Still failing on the samples
+
+* `case_04` (`account_004`): the account has no evidence entry and no deletion-worker row at all, so it cannot be tied to the person (its `analytics_901` row is recovered from the activity stream).
+* `case_18`, `case_20` (`audit_record_6645`, `audit_record_5569`): the security audit record is not mentioned anywhere in the participant data.
+
+These are information limits of the dataset rather than logic gaps; the agent does not guess ids.

@@ -186,6 +186,16 @@ class Linker:
                 if q["case_id"] in self.account and self.prelim.get(q["case_id"]) == "COMPLETE"
                 and not any(r.startswith("analytics_") for r in self.linked[q["case_id"]])]
         taken = set()
+        # hand-built cases log the anonymisation right at reported_at and may have no account row to anchor on
+        for q in self.cases:
+            cid = q["case_id"]
+            if self.prelim.get(cid) != "COMPLETE" or any(r.startswith("analytics_") for r in self.linked[cid]):
+                continue
+            c = self._candidates(q, self.anon_rows, (-0.3, 0.3), taken, strict_result=False)
+            if len(c) == 1:
+                self.analytics[cid] = c[0]["resource_id"]
+                taken.add(c[0]["resource_id"])
+        need = [q for q in need if q["case_id"] not in self.analytics]
         pending = {q["case_id"]: q for q in need}
         kind = ("analytics_platform", "ANONYMIZE_RECORD", "SUCCESS")
         # pass 1: unique candidate by elimination, used to learn the phase offset
