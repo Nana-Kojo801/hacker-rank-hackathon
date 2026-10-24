@@ -3,6 +3,7 @@ import csv
 
 import evidence
 from engine import World
+from evidence import system_of
 from identity import IdentityBook
 from linking import Linker
 import planner
@@ -53,6 +54,8 @@ class Solver:
         states = evaluate_all(self.w, q, rids)
         for rid in self.linker.extra_rids(q["case_id"]):
             st = self.w.evaluate(rid, q["requested_at"], q["audit_at"], need_explicit=False)
-            if st:
-                states[rid] = st
+            if not st:      # assigned from the activity stream only: nothing in the evidence contradicts deletion
+                st = {"action": self.w.action_for(rid), "violated": False, "obs": None, "t": "",
+                      "file": self.w.fallback_file(system_of(rid), q["audit_at"])}
+            states.setdefault(rid, st)
         return planner.plan(states)

@@ -105,12 +105,29 @@ class World:
         for o in obs:
             for i in o.idents():
                 self.ident_index[i].add(o.rid)
+        self.file_systems = defaultdict(set)
+        for o in obs:
+            self.file_systems[o.file_id].add(o.system)
+        for fid, cov in coverage.items():
+            self.file_systems[fid] |= set(cov)
         self.activity = activity_rows
         self.worker_ops = defaultdict(list)
         for a in activity_rows:
             a["_t"] = P(a["event_time"])
             if a["source_system"] == "deletion_worker":
                 self.worker_ops[a["resource_id"]].append(a)
+
+    def fallback_file(self, system, audit_at):
+        """Latest evidence file at/before audit_at that speaks about this system at all."""
+        best = ""
+        best_t = ""
+        for fid, row in self.manifest.items():
+            t = row["captured_at"]
+            if t > audit_at or t < best_t:
+                continue
+            if fid in self.file_systems and system in self.file_systems[fid]:
+                best, best_t = fid, t
+        return best
 
     def linked_rids(self, user):
         ids = user.emails | user.hashes | {user.user_id} | user.phones
@@ -120,6 +137,8 @@ class World:
         return rids
 
     def action_for(self, rid):
+        if any(o.attrs.get("attachment") for o in self.by_rid.get(rid, [])):
+            return "DELETE"          # support attachment belonging only to the subject (rule_06)
         ops = self.worker_ops.get(rid)
         if ops:
             return WORKER_OP_ACTION.get(ops[-1]["event_type"], DEFAULT_ACTION.get(system_of(rid), "DELETE"))
@@ -157,12 +176,14 @@ class World:
             return None
         latest = {s: max(ev, key=lambda e: (e[0], e[1])) for s, ev in events.items()}
         bad = [e for e in latest.values() if violates(action, e[3])]
+        conflict = bool(bad) and len(bad) < len(latest)
         if action == "RETAIN":
             best = max(latest.values(), key=lambda e: (e[0], e[1]))
             return {"action": action, "violated": False, "file": best[2], "obs": best[4], "t": best[0]}
         if bad:
             best = max(bad, key=lambda e: (e[0], e[1]))
-            return {"action": action, "violated": True, "file": best[2], "obs": best[4], "t": best[0]}
+            return {"action": action, "violated": True, "file": best[2], "obs": best[4], "t": best[0],
+                    "conflict": conflict}
         pool = list(latest.values())
         best = max(pool, key=lambda e: (e[1], e[0]))      # prefer explicit proof over omission
         return {"action": action, "violated": False, "file": best[2], "obs": best[4], "t": best[0]}

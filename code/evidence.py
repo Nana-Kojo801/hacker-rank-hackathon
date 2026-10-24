@@ -347,4 +347,6 @@ def load_all(dataset):
         elif suffix == ".txt":
             obs += parse_text_handover(fid, cap, path)
         # PDFs / PNGs are handled by the multimodal reader (see multimodal.py)
+    import multimodal
+    obs += multimodal.load_documents(dataset, manifest)
     return obs, manifest, extras
