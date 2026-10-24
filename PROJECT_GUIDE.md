@@ -390,3 +390,51 @@ entry per turn, required by `AGENTS.md`).
 * **Catalog link**: `LINK_RESOURCE_IDENTITY` activity row binding a resource to a person.
 * **Observation (`Obs`)**: one sighting of a resource at a time with identifiers and state.
 * **Identifier-less resource**: a resource with no email/hash/phone/user reference in any evidence.
+
+---
+
+## 14. Production viability and monitoring (the judge asks this late in the interview)
+
+**Would you run this in production? Yes, as a decision-support auditor, with the limits below.**
+
+* **Repeatable.** Same inputs give byte-identical output (checked across runs, cold cache and hash seeds). Any answer can
+  be replayed and explained from the cited evidence file.
+* **Validated before use.** `validate_output.py` rejects bad format, wrong order, missing/forbidden evidence ids and
+  evidence newer than `audit_at`. In production it would run on every batch and block publishing on any problem.
+* **Cheap and bounded model use.** One call per distinct request text, cached; 375 calls cost about 2.7 cents. Nothing the
+  model returns can change a case's audit logic, only whether it is audited, and a clear deletion request cannot be vetoed.
+* **Graceful degradation.** No key, invalid key or outage -> heuristic triage; `--no-llm` makes zero model calls.
+* **What I would monitor:**
+  1. Disagreement rate between the model's triage and the deterministic check (a jump means a prompt or model drift).
+  2. Share of cases with identifier-less resources resolved by timing, and how many were ambiguous pairs (our weakest link).
+  3. Counts per status and per finding type per batch; a sudden shift flags a parsing change in an upstream export.
+  4. Evidence parsing coverage: files in the manifest that produced zero observations (a format change).
+  5. Token and cost totals from the usage log.
+* **Regression safety.** Re-run the 32 samples and the custom cases on every change (they run in seconds); a change that
+  moves any status needs a reason. The two real regressions we shipped were caught this way or by independent QA.
+* **What is not production-ready.** Matching by timing is a heuristic; real systems should write the case/resource link when
+  the deletion job runs. The planner has no dependency graph. OCR rules are tuned to these console layouts. There is no
+  unit-test suite beyond the sample, custom-case and format checks.
+
+## 15. Know your code: a 5-minute walkthrough you can give
+
+1. `main.py`: loads the world once, loops over requests; triage first; then `Solver.solve(q)`.
+2. `evidence.py`: every evidence file becomes `Obs` records; `facts()` (in `engine.py`) reduces each to exists / identifier
+   / flow enabled / restore allowed.
+3. `engine.World.evaluate(rid, requested_at, audit_at)`: collects observations in the window, groups them into stores, takes
+   the latest per store, and reports a violation if any store violates the required action for that resource.
+4. `linking.py`: finds accounts and anonymized analytics rows that have no identifier, using the activity log (result
+   matching, elimination, seconds-offset likelihood).
+5. `planner.plan(states)`: any violation -> INCOMPLETE = findings + remediation + verification; otherwise COMPLETE =
+   evidence-backed verifications; final sort enforces the required order.
+
+**Dead code you should know about (honest):** `linking._window`, `linking._has_account_link`, `evidence.pdf_text` and two
+unused imports in `multimodal.py` (`HASH_RE`, `RID_RE`) and one in `evidence.py` (`Path`) are leftovers. They do nothing.
+The vision fallback in `llm.chat_vision` is untested against real calls. Say so rather than defend them.
+
+## 16. What I directed versus what the AI did (for "how did you work with your tools")
+
+Fill this in with your own words before the interview. Facts you can use: you chose the goal (win, finish today), required
+independent testers and gave me their reports, rejected doing the interview before the video, asked for one file covering
+everything, and decided what to submit. Decisions that came from reading evidence: the first model run's 68.8% result
+(you flagged it), the `collection_name` defect (QA found it). Say which parts you understand and which you took on trust.
