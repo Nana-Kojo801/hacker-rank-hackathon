@@ -3,3 +3,5 @@ x1,ada.old@example.test,2026-06-01T09:00:00Z,COMPLETE,2026-06-02T09:00:00Z,2026-
 x2,bruno.lime@example.test,2026-06-01T09:00:00Z,NOT_STARTED,2026-06-02T09:00:00Z,2026-06-10T09:00:00Z,"Solo quiero actualizar mi dirección de entrega. Por favor, no borren mi cuenta ni mis pedidos."
 x3,chika.moss@example.test,2026-06-10T09:00:00Z,COMPLETE,2026-06-12T09:00:00Z,2026-06-21T09:00:00Z,Please erase the account associated with this address.
 x4,dara.pine@example.test,2026-06-15T09:00:00Z,PARTIALLY_COMPLETE,2026-06-16T09:00:00Z,2026-06-26T09:00:00Z,I want my account and personal data permanently deleted. Keep only what the law requires.
+x5,esi.fig@example.test,2026-05-25T09:00:00Z,COMPLETE,2026-05-26T09:00:00Z,2026-06-16T09:00:00Z,Please delete my account and personal data.
+x6,femi.oak@example.test,2026-06-01T09:00:00Z,COMPLETE,2026-06-02T09:00:00Z,2026-06-21T09:00:00Z,I deleted my account. Please verify that everything is gone.

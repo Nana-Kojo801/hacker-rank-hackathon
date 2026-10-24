@@ -40,6 +40,29 @@ DEFAULT_ACTION = {
 }
 
 
+# which deletion_rules.csv category each system's records fall under (flows and restores have no category row:
+# they are governed by the "no active sync / restore path" clause of the completion definition)
+SYSTEM_CATEGORY = {
+    "account_service": "USER_PROFILE", "search_service": "SEARCH_INDEX_ENTRY", "export_service": "USER_EXPORT",
+    "support_platform": "SUPPORT_MESSAGE", "analytics_platform": "ANALYTICS_PROFILE",
+    "identity_service": "ACCOUNT_TOMBSTONE", "security_service": "SECURITY_AUDIT_LOG",
+    "legal_service": "LEGAL_HOLD_RECORD", "marketing_platform": "MARKETING_PROFILE",
+    "object_storage": "SUPPORT_ATTACHMENT", "cache_service": "CACHE_ENTRY", "email_delivery_service": "EMAIL_DELIVERY_LOG",
+}
+RULE_ACTION = {"DELETE": "DELETE", "REDACT": "REDACT", "ANONYMIZE": "ANONYMIZE", "RETAIN": "RETAIN"}
+
+
+def defaults_from_rules(rules):
+    """Default action per system, read from the supplied policy; falls back to the built-in table."""
+    out = dict(DEFAULT_ACTION)
+    for system, cat in SYSTEM_CATEGORY.items():
+        for r in rules:
+            if r["data_category"] == cat and r["required_action"] in RULE_ACTION:
+                out[system] = RULE_ACTION[r["required_action"]]
+                break
+    return out
+
+
 def truthy(v):
     return str(v).strip().lower() in ("1", "true", "yes", "active", "enabled", "y")
 
@@ -54,13 +77,11 @@ def facts(o):
         exists = False
     direct = bool(o.emails or o.phones or o.hashes or o.names)
     attrib = bool(direct or o.users)
-    text = str(a.get("message_text", a.get("message_excerpt", ""))).lower()
-    if result in ("anonymized", "redacted") or a.get("no_identifier"):
+    # a record labelled redacted/anonymised is clean only if no identifier was actually extracted from it
+    if (result in ("anonymized", "redacted") or a.get("no_identifier")) and not (o.emails or o.phones or o.hashes):
         direct = attrib = False
     elif result == "identifiable":
         direct = attrib = True
-    if "[redacted]" in text:
-        direct = False
     enabled = None
     if "enabled" in a:
         enabled = truthy(a["enabled"])
@@ -93,7 +114,9 @@ def violates(action, f):
 
 
 class World:
-    def __init__(self, obs, manifest, coverage, activity_rows, identities):
+    def __init__(self, obs, manifest, coverage, activity_rows, identities, table_cov=None, rules=None):
+        self.table_cov = table_cov or {}
+        self.defaults = defaults_from_rules(rules or [])
         self.obs = obs
         self.manifest = manifest
         self.coverage = coverage          # file_id -> {system: time}
@@ -136,13 +159,17 @@ class World:
             rids |= self.ident_index.get(i, set())
         return rids
 
-    def action_for(self, rid):
+    def action_for(self, rid, audit_at=None):
+        """Required treatment: policy default for the system, refined by what the worker attempted (up to audit_at)."""
+        default = self.defaults.get(system_of(rid), "DELETE")
         if any(o.attrs.get("attachment") for o in self.by_rid.get(rid, [])):
             return "DELETE"          # support attachment belonging only to the subject (rule_06)
-        ops = self.worker_ops.get(rid)
+        ops = self.worker_ops.get(rid) or []
+        if audit_at:
+            ops = [a for a in ops if a["event_time"] <= audit_at]     # activity after the audit cut-off is not known yet
         if ops:
-            return WORKER_OP_ACTION.get(ops[-1]["event_type"], DEFAULT_ACTION.get(system_of(rid), "DELETE"))
-        return DEFAULT_ACTION.get(system_of(rid), "DELETE")
+            return WORKER_OP_ACTION.get(ops[-1]["event_type"], default)
+        return default
 
     def store_of(self, o):
         return (self.manifest[o.file_id]["origin"], o.attrs.get("table", o.system))
@@ -150,7 +177,7 @@ class World:
     def evaluate(self, rid, requested_at, audit_at, need_explicit=True):
         """-> dict(action, violated, file, retained_obs) or None when nothing is known."""
         system = system_of(rid)
-        action = self.action_for(rid)
+        action = self.action_for(rid, audit_at)
         floor = "" if action == "RETAIN" else requested_at
         events = defaultdict(list)    # store -> [(t, explicit, file, facts, obs)]
         seen_files = set()
@@ -161,12 +188,22 @@ class World:
             events[self.store_of(o)].append((o.t, 1, fid, facts(o), o))
             seen_files.add(fid)
         if action != "RETAIN":
+            gone = {"exists": False, "direct": False, "attrib": False, "enabled": False, "allowed": False}
+            seen_tables = {(o.file_id, o.attrs.get("table")) for o in self.by_rid.get(rid, [])}
+            for fid, tables in self.table_cov.items():      # SQL: absence from one table is absence in that store only
+                if self.manifest[fid]["captured_at"] > audit_at:
+                    continue
+                for table, sysmap in tables.items():
+                    t = sysmap.get(system)
+                    if not t or t > audit_at or t < floor or (fid, table) in seen_tables:
+                        continue
+                    events[(self.manifest[fid]["origin"], table)].append((t, 0, fid, gone, None))
             for fid, cov in self.coverage.items():
                 t = cov.get(system)
-                if not t or t > audit_at or t < floor or fid in seen_files or self.manifest[fid]["captured_at"] > audit_at:
+                if (not t or t > audit_at or t < floor or fid in seen_files or fid in self.table_cov
+                        or self.manifest[fid]["captured_at"] > audit_at):
                     continue
-                f = {"exists": False, "direct": False, "attrib": False, "enabled": False, "allowed": False}
-                events[(self.manifest[fid]["origin"], system)].append((t, 0, fid, f, None))
+                events[(self.manifest[fid]["origin"], system)].append((t, 0, fid, gone, None))
         if need_explicit and action != "RETAIN" and not any(e[1] for ev in events.values() for e in ev):
             return None
         if not events and action == "RETAIN":      # standing retention record: fall back to any sighting
@@ -181,7 +218,7 @@ class World:
             best = max(latest.values(), key=lambda e: (e[0], e[1]))
             late = self.manifest[best[2]]["captured_at"] > audit_at     # only seen after the audit cut-off
             return {"action": action, "violated": False, "file": "" if late else best[2], "obs": best[4],
-                    "t": best[0]}
+                    "t": best[0], "present": bool(best[3]["exists"])}
         if bad:
             best = max(bad, key=lambda e: (e[0], e[1]))
             return {"action": action, "violated": True, "file": best[2], "obs": best[4], "t": best[0],

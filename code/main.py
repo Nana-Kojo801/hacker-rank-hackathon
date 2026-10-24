@@ -9,6 +9,7 @@ Usage:
 import argparse
 import csv
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -55,6 +56,8 @@ if __name__ == "__main__":
     ap.add_argument("--dataset", type=Path, default=DATASET)
     ap.add_argument("--output", type=Path, default=ROOT / "output.csv")
     a = ap.parse_args()
+    if a.no_llm:
+        os.environ["AUDIT_NO_LLM"] = "1"       # also disables the vision fallback inside evidence loading
     reqs = read(a.dataset, "deletion_requests.csv")
     samples = read(a.dataset, "sample_deletion_requests.csv")
     if a.samples:

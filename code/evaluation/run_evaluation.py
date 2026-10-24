@@ -68,7 +68,9 @@ def main():
                  "| x1 | request e-mail is a *historical* address; the account survives only in a read replica (replication drift) |\n"
                  "| x2 | non-deletion request written in Spanish (must be `NOT_APPLICABLE`, `[]`) |\n"
                  "| x3 | a later snapshot (after `audit_at`) shows the account again and must be ignored |\n"
-                 "| x4 | active data flow + restorable backup + tombstone still exposing the e-mail; checks ordering of findings, remediation and verification |\n")
+                 "| x4 | active data flow + restorable backup + tombstone still exposing the e-mail; checks ordering of findings, remediation and verification |\n"
+                 "| x5 | same SQL store snapshotted twice: the later complete snapshot no longer lists the account, so it is absent |\n"
+                 "| x6 | a legal-hold record observed as NOT_FOUND must not be reported as verified present |\n")
     lines.append("| metric | value |\n| --- | --- |\n" + fmt(m2))
     for cid in sorted(gold2):
         miss, extra = evaluate.diff(pred2[cid], gold2[cid])

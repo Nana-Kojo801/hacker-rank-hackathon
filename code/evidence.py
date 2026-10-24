@@ -84,6 +84,9 @@ def collect(value, obs):
         obs.users.add(u)
 
 
+PERSON_NAME_KEYS = {"name", "full_name", "display_name", "requester_name", "customer_name", "owner_name"}
+
+
 def collect_key(key, value, obs):
     if value is None or value == "":
         return
@@ -91,7 +94,7 @@ def collect_key(key, value, obs):
     if isinstance(value, str):
         if "phone" in k:
             obs.phones.add(norm_phone(value))
-        elif "name" in k and "file" not in k and "connector" not in k and "index" not in k and "event" not in k:
+        elif k in PERSON_NAME_KEYS:          # an allow-list: columns such as collection_name are labels, not people
             obs.names.add(value.strip().lower())
         collect(value, obs)
 
@@ -179,6 +182,12 @@ def parse_json(file_id, captured, path):
     return out, cov
 
 
+INVENTORY_TABLE_SYSTEM = {
+    "customer_profiles": "account_service", "customer_search_documents": "search_service",
+    "customer_analytics_profiles": "analytics_platform", "support_records": "support_platform",
+    "customer_exports": "export_service", "connector_subscriptions": "integration_service",
+    "backup_restore_entries": "backup_service", "security_audit_records": "security_service",
+}
 TABLE_SYSTEM = {
     "customer_profiles": "account_service", "customer_profiles_primary": "account_service",
     "customer_profiles_failover_replica": "account_service",
@@ -224,7 +233,17 @@ def parse_sql(file_id, captured, path):
     m = re.search(r"Database topology: (\w+)", text)
     for o in out:
         o.attrs["topology"] = m.group(1) if m else ""
-    return out, scope
+    # per-table coverage: which systems each table speaks for, and as of when (omission = absence in *that* table)
+    table_cov = {}
+    for t in tables:
+        if t == "snapshot_scope":
+            continue
+        systems = {o.system for o in out if o.attrs.get("table") == t}
+        hint = INVENTORY_TABLE_SYSTEM.get(t) or TABLE_SYSTEM.get(t)
+        if hint:
+            systems.add(hint)
+        table_cov[t] = {sy: scope.get(sy, captured) for sy in systems}
+    return out, scope, table_cov
 
 
 PIPE_RE = re.compile(r"^-\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(.*)$")
@@ -324,6 +343,9 @@ def pdf_text(path):
     return subprocess.run(["pdftotext", "-layout", str(path), "-"], capture_output=True, text=True).stdout
 
 
+TABLE_COVERAGE = {}      # file_id -> {table: {system: time}} for SQL snapshots
+
+
 def load_all(dataset):
     """Returns (observations, manifest, file_kinds)."""
     manifest = load_manifest(dataset)
@@ -339,9 +361,10 @@ def load_all(dataset):
             if cov:
                 extras[fid] = cov
         elif suffix == ".sql":
-            o, scope = parse_sql(fid, cap, path)
+            o, scope, table_cov = parse_sql(fid, cap, path)
             obs += o
             extras[fid] = scope
+            TABLE_COVERAGE[fid] = table_cov
         elif suffix == ".log":
             obs += parse_log(fid, cap, path)
         elif suffix == ".txt":

@@ -1,9 +1,11 @@
 """Builds a tiny synthetic dataset (same schema as dataset/) with hand-derived expected answers.
 
-Four fictional subjects exercise behaviours the public samples barely cover:
+Six fictional subjects exercise behaviours the public samples barely cover:
   X1  old (historical) e-mail in the request + replication drift (account only left in a read replica)
   X2  non-deletion request written in Spanish -> NOT_APPLICABLE
   X3  evidence captured after audit_at must be ignored (account reappears only in a later snapshot)
+  X5  the same SQL store is snapshotted twice; the later complete snapshot no longer lists the account
+  X6  a legal-hold record observed as NOT_FOUND must not be 'verified present'
   X4  active data flow + restorable backup + tombstone that still exposes the e-mail address
 Run:  python3 code/evaluation/custom_cases/build_custom_cases.py
 """
@@ -36,6 +38,8 @@ def main():
         ["user_902", "Bruno Lime", "bruno.lime@example.test", "+1 555 0102", "i" * 64, "2026-05-01T00:00:00Z"],
         ["user_903", "Chika Moss", "chika.moss@example.test", "+1 555 0103", "j" * 64, "2026-05-01T00:00:00Z"],
         ["user_904", "Dara Pine", "dara.pine@example.test", "+1 555 0104", "k" * 64, "2026-05-01T00:00:00Z"],
+        ["user_905", "Esi Fig", "esi.fig@example.test", "+1 555 0105", "l" * 64, "2026-05-01T00:00:00Z"],
+        ["user_906", "Femi Oak", "femi.oak@example.test", "+1 555 0106", "m" * 64, "2026-05-01T00:00:00Z"],
     ], ["user_id", "name", "email", "phone", "email_hash", "updated_at"])
     w(DS / "user_audit_log.csv", [
         ["audit_x1", "user_901", "2026-03-01T00:00:00Z", "email", "ada.old@example.test", "ada.quartz@example.test"],
@@ -96,18 +100,42 @@ COMMIT;
              "records": [{"resource_id": "audit_record_9104", "subject_reference": "user_904", "event_name": "account_deletion_reviewed",
                           "retention_until": "2033-12-31T23:59:59Z"}]}]}), encoding="utf-8")
 
+    # X5: same database + table twice; the later complete snapshot no longer lists the account -> absent
+    # X6: legal hold observed as NOT_FOUND must not be "verified present"
+    (EV / "inv_20260601.sql").write_text("""-- Captured at: 2026-06-01T08:00:00Z
+BEGIN TRANSACTION;
+CREATE TABLE snapshot_scope (origin_system TEXT PRIMARY KEY, captured_at TEXT NOT NULL);
+CREATE TABLE customer_profiles (resource_id TEXT PRIMARY KEY, customer_reference TEXT, full_name TEXT, email TEXT, phone TEXT, email_hash TEXT, account_status TEXT NOT NULL, updated_at TEXT NOT NULL);
+INSERT INTO snapshot_scope VALUES ('account_service', '2026-06-01T08:00:00Z');
+INSERT INTO customer_profiles VALUES ('account_9005', 'user_905', 'Esi Fig', 'esi.fig@example.test', NULL, NULL, 'ACTIVE', '2026-05-30T00:00:00Z');
+COMMIT;
+""", encoding="utf-8")
+    (EV / "inv_20260615.sql").write_text("""-- Captured at: 2026-06-15T08:00:00Z
+BEGIN TRANSACTION;
+CREATE TABLE snapshot_scope (origin_system TEXT PRIMARY KEY, captured_at TEXT NOT NULL);
+CREATE TABLE customer_profiles (resource_id TEXT PRIMARY KEY, customer_reference TEXT, full_name TEXT, email TEXT, phone TEXT, email_hash TEXT, account_status TEXT NOT NULL, updated_at TEXT NOT NULL);
+INSERT INTO snapshot_scope VALUES ('account_service', '2026-06-15T08:00:00Z');
+COMMIT;
+""", encoding="utf-8")
+    (EV / "legal_20260620.json").write_text(json.dumps({"exported_at": "2026-06-20T09:00:00Z", "origin": "legal_service", "records": [
+        {"recorded_at": "2026-06-20T09:00:00Z", "system": "legal_service", "resource_id": "legal_hold_9006",
+         "record_type": "LEGAL_HOLD_RECORD", "result": "NOT_FOUND", "subject_reference": "user_906"}]}), encoding="utf-8")
     w(DS / "evidence_files.csv", [
         ["evidence_01", "evidence/databases/customer_data_read_replica_20260610.sql", "customer_data_read_replica_capture", "2026-06-10T08:00:00Z"],
         ["evidence_02", "evidence/databases/customer_profiles_20260620.sql", "customer_profiles_capture", "2026-06-20T08:00:00Z"],
         ["evidence_03", "evidence/records/audit_ledger_20260620.json", "security_audit_service", "2026-06-20T09:00:00Z"],
         ["evidence_04", "evidence/databases/customer_profiles_20260702.sql", "customer_profiles_capture", "2026-07-02T08:00:00Z"],
         ["evidence_05", "evidence/records/snapshot_bundle_20260625.json", "records_assurance_snapshot_bundle", "2026-06-25T12:00:00Z"],
+        ["evidence_06", "evidence/databases/inv_20260601.sql", "customer_data_inventory_capture", "2026-06-01T08:00:00Z"],
+        ["evidence_07", "evidence/databases/inv_20260615.sql", "customer_data_inventory_capture", "2026-06-15T08:00:00Z"],
+        ["evidence_08", "evidence/records/legal_20260620.json", "legal_service", "2026-06-20T09:00:00Z"],
     ], ["file_id", "file_path", "origin", "captured_at"])
     (EV / "databases").mkdir(exist_ok=True)
     (EV / "records").mkdir(exist_ok=True)
     for name, sub in [("customer_data_read_replica_20260610.sql", "databases"), ("customer_profiles_20260620.sql", "databases"),
                       ("customer_profiles_20260702.sql", "databases"), ("audit_ledger_20260620.json", "records"),
-                      ("snapshot_bundle_20260625.json", "records")]:
+                      ("snapshot_bundle_20260625.json", "records"),
+                      ("inv_20260601.sql", "databases"), ("inv_20260615.sql", "databases"), ("legal_20260620.json", "records")]:
         (EV / name).rename(EV / sub / name)
 
     reqs = [
@@ -119,6 +147,10 @@ COMMIT;
          "Please erase the account associated with this address."],
         ["x4", "dara.pine@example.test", "2026-06-15T09:00:00Z", "PARTIALLY_COMPLETE", "2026-06-16T09:00:00Z", "2026-06-26T09:00:00Z",
          "I want my account and personal data permanently deleted. Keep only what the law requires."],
+        ["x5", "esi.fig@example.test", "2026-05-25T09:00:00Z", "COMPLETE", "2026-05-26T09:00:00Z", "2026-06-16T09:00:00Z",
+         "Please delete my account and personal data."],
+        ["x6", "femi.oak@example.test", "2026-06-01T09:00:00Z", "COMPLETE", "2026-06-02T09:00:00Z", "2026-06-21T09:00:00Z",
+         "I deleted my account. Please verify that everything is gone."],
     ]
     w(DS / "deletion_requests.csv", reqs, ["case_id", "email", "requested_at", "reported_status", "reported_at", "audit_at", "request_text"])
 
@@ -147,6 +179,8 @@ COMMIT;
             st(9, "VERIFICATION", "integration_service", "data_flow_9040", "VERIFY_DATA_FLOW_DISABLED", "DISABLED"),
             st(10, "VERIFICATION", "backup_service", "backup_9040", "VERIFY_RESTORE_BLOCKED", "BLOCKED")]),
     }
+    expected["x5"] = ("COMPLETE", [st(1, "VERIFICATION", "account_service", "account_9005", "VERIFY_RECORD_ABSENT", "ABSENT", "evidence_07")])
+    expected["x6"] = ("COMPLETE", [])
     w(DS / "expected_output.csv", [[k, v[0], json.dumps(v[1], separators=(",", ":"))] for k, v in expected.items()],
       ["case_id", "deletion_status", "steps_json"])
     # blank placeholders other loaders may expect

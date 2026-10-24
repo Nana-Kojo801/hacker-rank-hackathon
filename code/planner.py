@@ -27,6 +27,8 @@ def plan(states):
     for rid, st in states.items():
         action = st["action"]
         if action == "RETAIN":
+            if not st.get("present", True):
+                continue            # a retained record observed as missing cannot be "verified present"
             if st["file"]:      # a proof step must cite evidence that existed at audit_at
                 proof.append(step("VERIFICATION", "VERIFY_RECORD_PRESENT", rid, st["file"]))
             verification.append(step("VERIFICATION", "VERIFY_RECORD_PRESENT", rid))

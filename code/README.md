@@ -33,7 +33,7 @@ used only where language understanding is genuinely needed.  That keeps the outp
 | 3. evidence -> observations | `evidence.py`, `multimodal.py` | SQL snapshots (executed with SQLite, every replica table), JSON bundles/exports, 5 log dialects (logfmt, JSON, pipe, syslog, structured), handover text, PDFs (`pdftotext`) and screenshots (offline OCR, optional vision-model fallback) are flattened to one `Obs(resource, time, identifiers, state attributes)` type |
 | 4. which resources belong to the person | `engine.py`, `linking.py` | (a) exact identifier match (e-mail, hash, phone, `user_N`) on any evidence; (b) *catalog links* (`LINK_RESOURCE_IDENTITY`) for documents that show no identifier; (c) for identifier-less resources (404 account profiles, anonymised analytics rows) the deletion worker's activity stream: rows near `reported_at` whose result matches the reported status, resolved by elimination and by a self-calibrated sub-minute phase offset that rows of one case share |
 | 5. state at `audit_at` | `engine.World.evaluate` | only evidence captured at/before `audit_at` and after `requested_at`; per *store* (origin + table/replica) the latest observation wins, a snapshot that does not list a resource counts as absence **for that store only**, and the resource is non-compliant if **any** store (primary, read/regional/reporting/failover replica, log, console) still violates the rule (replication drift) |
-| 6. policy | `engine.py`, `planner.py` | required action per resource comes from `deletion_rules.csv` categories, refined by the operation the deletion worker attempted (DELETE / REDACT / ANONYMIZE / flow / restore); retained records (security audit, legal hold) are verified present |
+| 6. policy | `engine.py`, `planner.py` | the default action per system is read from `deletion_rules.csv` (category -> DELETE / REDACT / ANONYMIZE / RETAIN), refined by the operation the deletion worker attempted *before `audit_at`* (flow and restore checks have no rule row); retained records (security audit, legal hold) are verified present only if they were actually observed present |
 | 7. steps | `planner.py` | findings -> remediation (disable flows, block restores, delete, redact, anonymise) -> verification, sorted by the operation table then `system_id`, `resource_id`; remediation/future verification carry an empty `evidence_id`; `COMPLETE` verifications cite the evidence that proves the state |
 
 Other rules honoured: evidence captured after `audit_at` never changes a case or gets cited; later files are still
@@ -53,6 +53,14 @@ code/classify.py        request triage             code/llm.py          cached O
 ```
 
 ## Known limits
+
+* A retained audit record that is visible only in evidence captured after `audit_at` is still listed as a future
+  verification step (empty `evidence_id`) and is never cited for a `COMPLETE` proof; the public sample answers do the same
+  (5 of 17 retained steps there are only visible later).
+* `case_63`: the screenshot names a person who is not in `user_identities.csv`, while the data-catalog row ties the
+  record to the requester. The agent follows the catalog row; the conflict is not flagged in the output.
+* The vision-model fallback (used only when no OCR engine is installed and a key is set) is not equivalent to OCR and
+  flips `case_53` and `case_63`; install the OCR engine. `--no-llm` disables it.
 
 * Resources that appear nowhere in the evidence (for example some security audit records) cannot be reported.
 * When several cases share a `reported_at` and none of their identifier-less rows carries an identifier, the phase

@@ -26,7 +26,8 @@ DEFAULT_MODEL = os.environ.get("AUDIT_MODEL", "gpt-4o-mini")
 
 
 def available():
-    return bool(os.environ.get("OPENAI_API_KEY"))
+    """True only when a key is set and the run has not been switched to deterministic mode (--no-llm)."""
+    return bool(os.environ.get("OPENAI_API_KEY")) and not os.environ.get("AUDIT_NO_LLM")
 
 
 def chat_json(system, user, model=None, purpose="", schema_hint=None, max_retries=3):

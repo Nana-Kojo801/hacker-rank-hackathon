@@ -179,3 +179,23 @@ branch=ccr-c9f46477-fkdlnv
 repo_root=/home/user/hacker-rank-hackathon
 worktree=main
 parent_agent=none
+
+## [2026-10-24T16:10:00Z] Fix defects from two independent QA reports
+
+User Prompt (verbatim, secrets redacted):
+[uploaded files only, no text] Ghost-Data-Independent-QA.md, collection_name_fix.patch, QA_REPORT_claude_sonnet-5-5.md
+
+Agent Response Summary:
+Read both QA reports and the patch, reproduced the confirmed defect (collection_name read as a person's name; 31 statuses wrongly INCOMPLETE) and fixed it with a name allow-list. Also fixed table-specific SQL absence, missing retained records, redaction labels hiding identifiers, worker actions after audit_at, rules-file defaults, request triage, invalid-key fallback and --no-llm gating; added custom cases x5 and x6 that fail on the old code. Regenerated the deterministic output (353 incomplete, 124+31 complete, 10 not applicable).
+
+Actions:
+* edited code/evidence.py, engine.py, planner.py, solve.py, classify.py, llm.py, main.py, README.md
+* extended code/evaluation custom cases and report; regenerated output.csv
+
+Context:
+tool=Claude Code
+model=claude-sonnet-5-5
+branch=ccr-c9f46477-fkdlnv
+repo_root=/home/user/hacker-rank-hackathon
+worktree=main
+parent_agent=none
