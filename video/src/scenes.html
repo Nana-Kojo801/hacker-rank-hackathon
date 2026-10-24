@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ghost Data scenes</title>
+<style>
+:root {
+  --bg: #0b1020; --panel: #151c33; --panel2: #1d2645; --line: #2e3a66;
+  --text: #f2f5ff; --muted: #a3afd1; --green: #34d399; --red: #f87171; --amber: #fbbf24;
+  --blue: #60a5fa; --purple: #c084fc; --pink: #f472b6; --grey: #8892b0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: Inter, "DejaVu Sans", sans-serif; }
+.mono { font-family: "DejaVu Sans Mono", monospace; }
+.scene { position: absolute; inset: 0; display: none; padding: 150px 80px 190px; }
+.scene.on { display: block; }
+.hdr { position: absolute; top: 44px; left: 80px; right: 80px; display: flex; justify-content: space-between;
+  font-size: 28px; color: var(--muted); letter-spacing: .02em; }
+.hdr b { color: var(--text); font-weight: 600; }
+.hdr .tag { border: 2px solid var(--line); border-radius: 30px; padding: 4px 18px; font-size: 24px; }
+.stage { position: relative; width: 100%; height: 100%; }
+.center { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+.row { display: flex; align-items: center; }
+.col { display: flex; flex-direction: column; }
+h1 { font-size: 76px; font-weight: 800; line-height: 1.1; }
+h2 { font-size: 56px; font-weight: 700; line-height: 1.15; }
+.body { font-size: 40px; line-height: 1.35; }
+.small { font-size: 30px; line-height: 1.3; }
+.muted { color: var(--muted); }
+.red { color: var(--red); } .green { color: var(--green); } .amber { color: var(--amber); }
+.blue { color: var(--blue); } .purple { color: var(--purple); }
+.card { background: var(--panel); border: 2px solid var(--line); border-radius: 22px; padding: 34px 40px; }
+.pill { display: inline-block; white-space: nowrap; border-radius: 40px; padding: 10px 28px; font-weight: 700; font-size: 34px; }
+.pill.g { background: rgba(52,211,153,.16); color: var(--green); border: 2px solid var(--green); }
+.pill.r { background: rgba(248,113,113,.16); color: var(--red); border: 2px solid var(--red); }
+.pill.y { background: rgba(251,191,36,.14); color: var(--amber); border: 2px solid var(--amber); }
+.pill.n { background: rgba(136,146,176,.16); color: #cfd6ee; border: 2px solid var(--grey); }
+.pill.b { background: rgba(96,165,250,.16); color: var(--blue); border: 2px solid var(--blue); }
+.pill.p { background: rgba(192,132,252,.16); color: var(--purple); border: 2px solid var(--purple); }
+.banner { border-radius: 18px; padding: 22px 34px; font-size: 40px; font-weight: 700; text-align: center; }
+.banner.r { background: rgba(248,113,113,.15); border: 2px solid var(--red); }
+.banner.y { background: rgba(251,191,36,.12); border: 2px solid var(--amber); }
+.banner.g { background: rgba(52,211,153,.12); border: 2px solid var(--green); }
+.banner.b { background: rgba(96,165,250,.12); border: 2px solid var(--blue); }
+/* strike: a line drawn across the element as --p goes 0 -> 1 */
+.strike { position: relative; }
+.strike::after { content: ""; position: absolute; left: -6px; top: 52%; height: 6px; border-radius: 3px;
+  background: var(--red); width: calc((100% + 12px) * var(--p, 0)); }
+/* hl: highlight grows with --p */
+.hl { border-radius: 12px; transition: none;
+  background: rgba(251,191,36, calc(var(--p, 0) * .18)); box-shadow: 0 0 0 calc(var(--p, 0) * 3px) var(--amber); }
+.hl.red-hl { background: rgba(248,113,113, calc(var(--p, 0) * .2)); box-shadow: 0 0 0 calc(var(--p, 0) * 4px) var(--red); }
+.hl.green-hl { background: rgba(52,211,153, calc(var(--p, 0) * .18)); box-shadow: 0 0 0 calc(var(--p, 0) * 3px) var(--green); }
+.icon-ok, .icon-no, .icon-warn { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px;
+  border-radius: 50%; font-weight: 800; font-size: 40px; flex: none; }
+.icon-ok { background: rgba(52,211,153,.18); color: var(--green); border: 3px solid var(--green); }
+.icon-no { background: rgba(248,113,113,.18); color: var(--red); border: 3px solid var(--red); }
+.icon-warn { background: rgba(251,191,36,.15); color: var(--amber); border: 3px solid var(--amber); border-radius: 14px; }
+
+/* title card */
+#title { padding: 0; }
+#title .center { gap: 26px; }
+.t-num { font-size: 40px; color: var(--blue); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.t-title { font-size: 96px; font-weight: 800; text-align: center; max-width: 1600px; line-height: 1.08; }
+.t-tag { font-size: 34px; color: var(--muted); border: 2px solid var(--line); border-radius: 40px; padding: 8px 28px; }
+.t-brand { position: absolute; bottom: 70px; width: 100%; text-align: center; font-size: 28px; color: var(--muted); }
+
+/* chapter 1 */
+.dash-row { display: flex; white-space: nowrap; gap: 20px; justify-content: space-between; align-items: center; padding: 22px 0;
+  border-bottom: 2px solid var(--line); font-size: 34px; }
+.dash-row:last-child { border-bottom: 0; }
+.bigtick { position: absolute; right: -40px; top: -60px; width: 150px; height: 150px; border-radius: 50%;
+  background: var(--green); color: #05301f; font-size: 100px; font-weight: 900; display: flex; align-items: center;
+  justify-content: center; box-shadow: 0 0 60px rgba(52,211,153,.5); }
+.field { border: 2px solid var(--line); border-radius: 14px; padding: 20px 26px; font-size: 38px; background: var(--panel2); }
+.btn { background: var(--blue); color: #061229; font-weight: 800; border-radius: 14px; padding: 20px; text-align: center; font-size: 38px; }
+.sys { position: relative; background: var(--panel); border: 2px solid var(--line); border-radius: 18px; height: 250px;
+  padding: 24px 26px; overflow: hidden; }
+.sys .nm { font-size: 32px; font-weight: 700; line-height: 1.2; }
+.sys .st { font-size: 26px; color: var(--muted); margin-top: 10px; }
+.sys .found { position: absolute; left: 0; right: 0; bottom: 0; height: 66px; background: rgba(248,113,113,.22);
+  border-top: 2px solid var(--red); color: var(--red); font-weight: 800; font-size: 28px; display: flex;
+  align-items: center; padding-left: 26px; }
+.mag { position: absolute; width: 150px; height: 150px; pointer-events: none; z-index: 5; }
+.room { border: 3px solid var(--line); background: var(--panel); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px; font-size: 34px; font-weight: 700; }
+
+/* chapter 2 */
+.inrow { display: flex; align-items: center; gap: 26px; height: 84px; }
+.inrow .num { width: 170px; text-align: right; font-size: 52px; font-weight: 800; color: var(--blue); }
+.inrow .lbl { font-size: 32px; font-weight: 600; }
+.inrow .fn { font-size: 22px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: 330px 1fr; font-size: 34px; row-gap: 6px; }
+.kv > div { padding: 12px 18px; }
+.kv .k { color: var(--muted); font-family: "DejaVu Sans Mono", monospace; font-size: 30px; }
+.cell { border: 3px solid var(--line); padding: 26px 34px; font-size: 44px; font-family: "DejaVu Sans Mono", monospace;
+  font-weight: 700; text-align: center; background: var(--panel); }
+.json { font-family: "DejaVu Sans Mono", monospace; font-size: 30px; line-height: 1.45; white-space: pre; }
+.phase { border-radius: 16px; padding: 18px 30px; font-size: 36px; font-weight: 800; font-family: "DejaVu Sans Mono", monospace; }
+.arrow { font-size: 50px; color: var(--muted); padding: 0 18px; }
+
+/* chapter 3 lanes */
+.lanes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; height: 100%; }
+.lane { border-radius: 22px; border: 3px solid; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.lane h3 { font-size: 40px; font-weight: 800; text-align: center; }
+.lane .sub { font-size: 26px; color: var(--muted); text-align: center; margin-top: -6px; margin-bottom: 4px; }
+.lane.del { border-color: var(--red); background: rgba(248,113,113,.06); } .lane.del h3 { color: var(--red); }
+.lane.mid { border-color: var(--amber); background: rgba(251,191,36,.05); } .lane.mid h3 { color: var(--amber); }
+.lane.ret { border-color: var(--blue); background: rgba(96,165,250,.06); } .lane.ret h3 { color: var(--blue); }
+.chip { background: var(--panel2); border: 2px solid var(--line); border-radius: 14px; padding: 13px 20px; font-size: 30px; font-weight: 600; }
+.chip small { display: block; font-size: 22px; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.minihead { font-size: 30px; font-weight: 800; color: var(--amber); margin-top: 6px; }
+.tomb { width: 1000px; border-radius: 300px 300px 26px 26px; background: var(--panel); border: 3px solid #56628f;
+  padding: 120px 70px 50px; }
+.tfield { display: grid; grid-template-columns: 250px 1fr 90px; align-items: center; font-size: 36px; padding: 12px 18px; }
+.tfield .k { font-family: "DejaVu Sans Mono", monospace; color: var(--muted); font-size: 30px; }
+.tfield .v { justify-self: start; }
+
+/* chapter 4 */
+.pipe { display: grid; grid-template-columns: repeat(6, 1fr); gap: 22px; }
+.box { position: relative; background: var(--panel); border: 3px solid var(--line); border-radius: 20px; height: 230px;
+  padding: 22px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.box .n { font-size: 30px; color: var(--muted); font-weight: 800; }
+.box .t { font-size: 34px; font-weight: 700; line-height: 1.2; }
+.box.hl { box-shadow: 0 0 0 calc(var(--p, 0) * 4px) var(--amber); background: rgba(251,191,36, calc(var(--p,0) * .12)); }
+.badge { position: absolute; top: -26px; right: 16px; border-radius: 12px; padding: 6px 16px; font-size: 24px; font-weight: 800;
+  letter-spacing: .06em; }
+.badge.code { background: var(--green); color: #052e1d; } .badge.model { background: var(--purple); color: #2a0b47; }
+.panel { position: absolute; left: 0; right: 0; top: 300px; bottom: 0; }
+.quote { font-size: 32px; font-style: italic; background: var(--panel2); border-left: 6px solid var(--grey);
+  padding: 16px 24px; border-radius: 8px; }
+.node { background: var(--panel2); border: 2px solid var(--line); border-radius: 14px; padding: 12px 22px; font-size: 30px; }
+
+/* chapter 5 */
+.tl { position: absolute; left: 60px; right: 60px; height: 6px; background: var(--line); border-radius: 3px; }
+.mark { position: absolute; width: 4px; background: #c9d2f0; }
+.mlabel { position: absolute; font-size: 28px; text-align: center; width: 360px; margin-left: -180px; }
+.dot { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid #0b1020; }
+.ruler-tick { position: absolute; width: 2px; background: #56628f; }
+.pair { display: grid; grid-template-columns: 250px 90px 1fr; align-items: center; font-size: 48px; padding: 22px 0; }
+
+/* chapter 6 */
+.tlpt { position: absolute; top: 0; width: 320px; margin-left: -160px; text-align: center; }
+.tlpt .d { width: 34px; height: 34px; border-radius: 50%; margin: 0 auto 18px; border: 4px solid var(--bg); }
+.db { background: var(--panel); border: 3px solid var(--line); border-radius: 22px; padding: 30px 34px; }
+.db .hd { display: flex; align-items: center; gap: 18px; font-size: 34px; font-weight: 800; }
+.db .meta { font-size: 27px; color: var(--muted); margin: 10px 0 22px; line-height: 1.4; }
+.tbl { font-family: "DejaVu Sans Mono", monospace; font-size: 28px; border: 2px solid var(--line); border-radius: 12px; }
+.tbl .th { background: var(--panel2); padding: 12px 18px; color: var(--muted); }
+.tbl .td { padding: 16px 18px; line-height: 1.45; }
+.stamp { position: absolute; font-size: 120px; font-weight: 900; color: var(--red); border: 10px solid var(--red);
+  border-radius: 24px; padding: 6px 40px; letter-spacing: .04em; background: rgba(11,16,32,.85); }
+.steps { display: grid; grid-template-columns: 60px 250px 270px 200px 450px 180px 210px; font-family: "DejaVu Sans Mono", monospace;
+  font-size: 27px; }
+.steps > div { padding: 18px 10px; border-bottom: 2px solid var(--line); white-space: nowrap; }
+.steps .h { color: var(--muted); font-size: 23px; }
+
+/* chapter 7 / 8 */
+.tile { background: var(--panel); border: 2px solid var(--line); border-radius: 24px; padding: 40px 30px; text-align: center; }
+.tile .v { font-size: 96px; font-weight: 800; line-height: 1.05; }
+.tile .l { font-size: 32px; color: var(--muted); margin-top: 14px; }
+.bar-bg { height: 90px; background: var(--panel2); border-radius: 16px; position: relative; overflow: hidden; }
+.bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 16px; transform-origin: left center; }
+.check { display: flex; align-items: center; gap: 30px; font-size: 42px; font-weight: 600; padding: 18px 0; }
+.flipwrap { perspective: 2600px; width: 1500px; height: 600px; }
+.flip { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+.face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 30px; padding: 60px 80px;
+  display: flex; flex-direction: column; justify-content: center; gap: 30px; }
+.face.front { background: var(--panel); border: 3px solid var(--blue); }
+.face.back { background: #12241f; border: 3px solid var(--green); transform: rotateY(180deg); }
+.face .qn { font-size: 32px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.face .qt { font-size: 60px; font-weight: 800; line-height: 1.15; }
+.face .at { font-size: 46px; line-height: 1.38; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- ===================================================================== title card -->
+<section class="scene" id="title">
+  <div class="center">
+    <div class="t-num" data-in="0.05" data-a="up">Chapter <span id="tnum"></span> of 8</div>
+    <div class="t-title" id="ttitle" data-in="0.25" data-a="up"></div>
+    <div class="t-tag" id="ttag" data-in="0.6" data-a="fade"></div>
+  </div>
+  <div class="t-brand">Ghost Data Still Exists &middot; HackerRank Orchestrate</div>
+</section>
+
+<!-- ===================================================================== chapter 1 -->
+<section class="scene" id="c1_dashboard">
+  <div class="row" style="height:100%; gap:90px; justify-content:center;">
+    <div class="col" style="width:720px; gap:26px;">
+      <div class="small muted" data-in="0" data-a="up" style="letter-spacing:.12em; text-transform:uppercase;">Northstar Shop</div>
+      <div style="font-size:150px; font-weight:900; line-height:1;" class="red" data-in="0.5" data-a="pop">$2.4 million</div>
+      <div class="body muted" data-in="1.1" data-a="up">lost to one customer who was &ldquo;deleted&rdquo; but never really gone</div>
+    </div>
+    <div class="card" style="width:860px; position:relative;" data-in="0.3" data-a="up">
+      <div class="small muted" style="margin-bottom:10px;">Privacy dashboard &middot; deletion requests</div>
+      <div class="dash-row"><span>Deletion request &middot; <b>customer A</b></span><span class="pill g" data-in="c1" data-a="pop">&#10003; Complete</span></div>
+      <div class="dash-row"><span>Deletion request &middot; <b>customer B</b></span><span class="pill g" data-in="c1+0.25" data-a="pop">&#10003; Complete</span></div>
+      <div class="dash-row"><span>Deletion request &middot; <b>customer C</b></span><span class="pill g" data-in="c1+0.5" data-a="pop">&#10003; Complete</span></div>
+      <div class="bigtick" data-in="c1+0.8" data-a="pop">&#10003;</div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c1_signup">
+  <div class="center">
+    <div class="card" style="width:980px; display:flex; flex-direction:column; gap:26px; padding:50px 60px;">
+      <h2 style="font-size:50px;">Create your Northstar account</h2>
+      <div class="small muted">Email</div>
+      <div class="field mono" style="margin-top:-14px;">customer@example.com</div>
+      <div class="btn">Sign up</div>
+      <div class="banner r" data-in="c1" data-a="pop">&#9888; This email is already registered.</div>
+    </div>
+    <div class="body amber" style="margin-top:34px; font-weight:700;" data-in="c2" data-a="up">But the account was supposed to be gone&hellip;</div>
+  </div>
+</section>
+
+<section class="scene" id="c1_systems">
+  <div class="stage">
+    <div id="sysgrid" style="position:absolute; left:0; top:0; width:1250px; display:grid; grid-template-columns:repeat(4,1fr); gap:22px;" data-stagger="c1,0.62">
+      <div class="sys"><div class="nm">Database replica</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+      <div class="sys"><div class="nm">Search index</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+      <div class="sys"><div class="nm">Support attachments</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+      <div class="sys"><div class="nm">Exports</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+      <div class="sys"><div class="nm">Analytics</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+      <div class="sys"><div class="nm">Logs</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+      <div class="sys" id="sysbackup"><div class="nm">Backups</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+      <div class="sys"><div class="nm">Cache</div><div class="st">workflow: deleted</div><div class="found" data-a="pop">&#9679; record found</div></div>
+    </div>
+    <svg class="mag" id="mag1" viewBox="0 0 150 150" data-in="c1-0.2" data-a="fade" data-out="c1+5.4">
+      <circle cx="60" cy="60" r="44" fill="rgba(96,165,250,.12)" stroke="#60a5fa" stroke-width="10"/>
+      <line x1="93" y1="93" x2="138" y2="138" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/>
+    </svg>
+    <div class="sys" id="sysprofile" style="position:absolute; right:0; top:0; width:450px; height:300px; padding-top:34px;">
+      <div class="nm" style="font-size:38px;">Main profile database</div>
+      <div class="st" style="font-size:30px;">deleted &#10003;</div>
+      <div class="found" style="height:96px; font-size:34px;" data-in="c2+1.3" data-a="pop">&#8635; record re-created</div>
+    </div>
+    <div class="sys" style="position:absolute; right:0; top:420px; width:450px; height:102px; border-color:var(--amber); display:flex; align-items:center; justify-content:center;" data-in="c2-0.3" data-a="up">
+      <div class="nm amber" style="font-size:36px;">&#8635; sync job (data flow)</div>
+    </div>
+    <svg style="position:absolute; right:0; top:300px; width:450px; height:120px; overflow:visible;" data-in="c2" data-a="fade">
+      <path d="M 225 118 L 225 30" fill="none" stroke="#fbbf24" stroke-width="12" stroke-linecap="round"
+            stroke-dasharray="90" style="stroke-dashoffset: calc(90px * (1 - var(--p, 0)));" data-in="c2" data-a="draw" data-dur="1"/>
+      <polygon points="200,34 225,4 250,34" fill="#fbbf24" data-in="c2+0.9" data-a="fade"/>
+    </svg>
+    <div class="banner y" style="position:absolute; left:0; right:0; bottom:10px;" data-in="c3" data-a="up">&ldquo;Complete&rdquo; was a claim, not a fact.</div>
+  </div>
+</section>
+
+<section class="scene" id="c1_inspector">
+  <div class="row" style="height:100%; gap:90px; justify-content:center;">
+    <div class="card" style="width:600px; text-align:center; padding:50px;" data-in="0.2" data-a="up">
+      <div class="small muted">The builder (the workflow)</div>
+      <div style="margin:34px auto; width:300px; height:330px; border-radius:20px; background:#f3efe2; color:#1b1b1b; padding:34px 26px; text-align:left;">
+        <div style="height:16px; width:120px; background:#9a8f70; border-radius:8px; margin:-50px auto 26px;"></div>
+        <div style="font-size:30px; font-weight:800;">Work order</div>
+        <div style="font-size:26px; margin-top:16px; line-height:1.5;">All rooms<br>cleared</div>
+        <div style="font-size:44px; font-weight:900; color:#047857; margin-top:22px;" data-in="c1" data-a="pop">&#10003; Job done</div>
+      </div>
+    </div>
+    <div style="position:relative; width:820px; height:640px;" data-in="0.4" data-a="up">
+      <div class="small muted" style="text-align:center; margin-bottom:16px;">The inspector (our auditor)</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; grid-template-rows:280px 280px;" id="rooms">
+        <div class="room">Kitchen<span class="icon-ok" data-in="c2+0.5" data-a="pop">&#10003;</span></div>
+        <div class="room">Bedroom<span class="icon-ok" data-in="c2+1.2" data-a="pop">&#10003;</span></div>
+        <div class="room">Bathroom<span class="icon-no" data-in="c2+1.9" data-a="pop">&#10007;</span></div>
+        <div class="room">Garage<span class="icon-no" data-in="c2+2.6" data-a="pop">&#10007;</span></div>
+      </div>
+      <svg class="mag" id="mag2" viewBox="0 0 150 150" data-in="c2-0.3" data-a="fade">
+        <circle cx="60" cy="60" r="44" fill="rgba(96,165,250,.12)" stroke="#60a5fa" stroke-width="10"/>
+        <line x1="93" y1="93" x2="138" y2="138" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c1_job">
+  <div class="center" style="gap:46px;">
+    <div class="row" style="gap:30px;" data-in="0" data-a="up">
+      <h1>Don&rsquo;t trust</h1>
+      <h1 class="strike green" data-in="1.2" data-a="strike" data-dur="0.5">&ldquo;Complete&rdquo;</h1>
+    </div>
+    <div class="row body" style="gap:24px;" data-in="c1" data-a="up">
+      <svg width="70" height="70" viewBox="0 0 150 150"><circle cx="60" cy="60" r="44" fill="none" stroke="#60a5fa" stroke-width="12"/><line x1="93" y1="93" x2="138" y2="138" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/></svg>
+      Check what is <b>really</b> left in every system
+    </div>
+    <div class="row" style="gap:28px;" data-stagger="c2,0.55">
+      <span class="pill g" data-a="pop">COMPLETE</span>
+      <span class="pill r" data-a="pop">INCOMPLETE</span>
+      <span class="pill n" data-a="pop">NOT_APPLICABLE</span>
+    </div>
+    <div class="row" style="gap:6px;" data-in="c3" data-a="up">
+      <span class="phase" style="background:rgba(248,113,113,.15); color:var(--red);">Finding</span><span class="arrow">&rarr;</span>
+      <span class="phase" style="background:rgba(251,191,36,.13); color:var(--amber);">Fix</span><span class="arrow">&rarr;</span>
+      <span class="phase" style="background:rgba(52,211,153,.13); color:var(--green);">Check</span>
+    </div>
+    <div class="banner b" data-in="c4" data-a="up">Every step shows its evidence</div>
+  </div>
+</section>
+
+<!-- ===================================================================== chapter 2 -->
+<section class="scene" id="c2_inputs">
+  <div class="stage">
+    <div class="small muted" style="position:absolute; left:0; top:-20px;" data-in="0" data-a="fade">dataset/</div>
+    <div class="col" style="position:absolute; left:0; top:30px; width:1080px;">
+      <div class="inrow" data-in="c1" data-a="left"><div class="num">518</div><div><div class="lbl">requests to audit</div><div class="fn mono">deletion_requests.csv</div></div></div>
+      <div class="inrow" data-in="c1+0.9" data-a="left"><div class="num">32</div><div><div class="lbl">sample requests with correct answers</div><div class="fn mono">sample_deletion_requests.csv &middot; sample_output.csv</div></div></div>
+      <div class="inrow" data-in="c2" data-a="left"><div class="num">850</div><div><div class="lbl">customers, current details</div><div class="fn mono">user_identities.csv</div></div></div>
+      <div class="inrow" data-in="c3" data-a="left"><div class="num">306</div><div><div class="lbl">identity changes (old emails, phones)</div><div class="fn mono">user_audit_log.csv</div></div></div>
+      <div class="inrow" data-in="c4" data-a="left"><div class="num">4,011</div><div><div class="lbl">activity events: deletions, syncs, backups, exports</div><div class="fn mono">system_activity.csv</div></div></div>
+      <div class="inrow" data-in="c5" data-a="left"><div class="num">15</div><div><div class="lbl">deletion rules</div><div class="fn mono">deletion_rules.csv</div></div></div>
+      <div class="inrow" data-in="c6" data-a="left"><div class="num">94</div><div><div class="lbl">evidence files</div><div class="fn mono">24 SQL &middot; 26 logs &middot; 28 JSON &middot; 4 PDF &middot; 11 PNG &middot; 1 text</div></div></div>
+    </div>
+    <svg style="position:absolute; left:1140px; top:40px;" width="620" height="420" viewBox="0 0 620 420" data-in="0.3" data-a="fade">
+      <path d="M 20 20 L 600 20 L 380 230 L 380 400 L 240 400 L 240 230 Z" fill="rgba(96,165,250,.10)" stroke="#60a5fa" stroke-width="6" stroke-linejoin="round"/>
+      <text x="310" y="120" text-anchor="middle" fill="#f2f5ff" font-size="44" font-weight="800" font-family="Inter">Audit agent</text>
+    </svg>
+    <div class="banner y" style="position:absolute; left:1110px; right:0; top:500px; font-size:32px; text-align:left;" data-in="c7" data-a="up">
+      Evidence files don&rsquo;t say whose data they hold.<br><span style="font-weight:500;">Link them by email, phone, hash and record id.</span>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c2_request">
+  <div class="stage">
+    <div class="small muted" style="margin-bottom:14px;" data-in="0" data-a="fade">One request (sample case_05)</div>
+    <div class="card" style="padding:24px 30px; width:1760px;" data-in="0" data-a="up">
+      <div class="kv">
+        <div class="k">case_id</div><div class="mono">case_05</div>
+        <div class="k hl" data-in="0.2" data-a="hl" data-out="c1">email</div><div class="mono hl" data-in="0.2" data-a="hl" data-out="c1">leila.haddad@yahoo.com <span class="small muted" style="font-family:Inter;">&nbsp;(may be a current or an old address)</span></div>
+        <div class="k hl" data-in="c1" data-a="hl" data-out="c2">requested_at</div><div class="mono hl" data-in="c1" data-a="hl" data-out="c2">2026-08-27 14:17</div>
+        <div class="k hl" data-in="c2" data-a="hl" data-out="c3">reported_status</div><div class="mono hl" data-in="c2" data-a="hl" data-out="c3">COMPLETE <span class="small muted" style="font-family:Inter;">&nbsp;or PARTIALLY_COMPLETE / NOT_STARTED</span></div>
+        <div class="k">reported_at</div><div class="mono">2026-08-28 09:03</div>
+        <div class="k hl" data-in="c3" data-a="hl">audit_at</div><div class="mono hl" data-in="c3" data-a="hl">2026-09-08 13:40</div>
+      </div>
+    </div>
+    <div style="position:absolute; left:0; right:0; top:560px; height:140px;" data-in="c3+1" data-a="up">
+      <div style="position:absolute; left:0; width:1250px; top:40px; height:14px; background:var(--blue); border-radius:7px;"></div>
+      <div style="position:absolute; left:1250px; right:0; top:40px; height:14px; border-radius:7px; background:repeating-linear-gradient(45deg,#3a4470 0 14px,#1d2645 14px 28px);"></div>
+      <div style="position:absolute; left:1244px; top:0; width:12px; height:94px; background:var(--amber); border-radius:6px;"></div>
+      <div class="small" style="position:absolute; left:0; top:76px;">what we may use</div>
+      <div class="small amber" style="position:absolute; left:1120px; top:100px; font-weight:800;">audit_at</div>
+      <div class="small muted" style="position:absolute; left:1320px; top:76px;">later evidence &rarr; ignored</div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c2_output">
+  <div class="center" style="gap:34px; justify-content:flex-start;">
+    <div class="small muted" data-in="0" data-a="fade">output.csv &middot; one row per request</div>
+    <div class="row" data-in="0" data-a="up">
+      <div class="cell hl" style="border-radius:16px 0 0 16px;" data-in="c1" data-a="hl">case_id</div>
+      <div class="cell hl" data-in="c1+0.3" data-a="hl">deletion_status</div>
+      <div class="cell hl" style="border-radius:0 16px 16px 0; width:620px;" data-in="c2" data-a="hl">steps_json</div>
+    </div>
+    <div class="row mono" style="font-size:34px; gap:0;">
+      <div style="width:270px; text-align:center;" data-in="c1" data-a="up">case_05</div>
+      <div style="width:440px; text-align:center;" class="red" data-in="c1+0.3" data-a="up">INCOMPLETE</div>
+      <div style="width:620px; text-align:center;" class="muted" data-in="c2" data-a="up">[ step 1, step 2, step 3 ]</div>
+    </div>
+    <div class="card json" style="padding:24px 40px; font-size:28px;" data-in="c3" data-a="up">{ "step_no": 1, "phase": "FINDING", "system_id": "account_service",
+  "resource_id": "account_005", "operation": "REPORT_REMAINING_RECORD",
+  "state": "PRESENT", "evidence_id": "evidence_54" }</div>
+    <div class="row" data-in="c4" data-a="up">
+      <span class="phase" style="background:rgba(248,113,113,.15); color:var(--red);">FINDING</span><span class="arrow">&rarr;</span>
+      <span class="phase" style="background:rgba(251,191,36,.13); color:var(--amber);">REMEDIATION</span><span class="arrow">&rarr;</span>
+      <span class="phase" style="background:rgba(52,211,153,.13); color:var(--green);">VERIFICATION</span>
+      <span class="small muted" style="margin-left:34px;">findings cite evidence</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== chapter 3 -->
+<section class="scene" id="c3_delete">
+  <div class="lanes">
+    <div class="lane del"><h3>DELETE</h3><div class="sub">remove the whole record</div>
+      <div class="col" style="gap:12px;" data-stagger="c1,0.75">
+        <div class="chip" data-a="right">User profile</div>
+        <div class="chip" data-a="right">Search index entry</div>
+        <div class="chip" data-a="right">Cache entry</div>
+        <div class="chip" data-a="right">User export</div>
+        <div class="chip" data-a="right">Marketing profile</div>
+        <div class="chip" data-a="right">Support attachment<small>belongs only to this person</small></div>
+      </div>
+    </div>
+    <div class="lane mid"><h3>REDACT / ANONYMIZE</h3><div class="sub">keep the record, change it</div></div>
+    <div class="lane ret"><h3>RETAIN</h3><div class="sub">must stay</div></div>
+  </div>
+</section>
+
+<section class="scene" id="c3_redact">
+  <div class="lanes">
+    <div class="lane del"><h3>DELETE</h3><div class="sub">remove the whole record</div>
+      <div class="chip">User profile</div><div class="chip">Search index entry</div><div class="chip">Cache entry</div>
+      <div class="chip">User export</div><div class="chip">Marketing profile</div><div class="chip">Support attachment<small>belongs only to this person</small></div>
+    </div>
+    <div class="lane mid"><h3>REDACT / ANONYMIZE</h3><div class="sub">keep the record, change it</div>
+      <div class="minihead" data-in="c1" data-a="fade">Redact: remove names &amp; emails</div>
+      <div class="chip" data-in="c1+0.5" data-a="down">Shared support message</div>
+      <div class="chip" data-in="c1+1.0" data-a="down">Email delivery log</div>
+      <div class="minihead" style="margin-top:18px;" data-in="c2" data-a="fade">Anonymize: cut the link</div>
+      <div class="chip" data-in="c2+0.5" data-a="down">Analytics profile</div>
+      <div class="chip" data-in="c2+1.0" data-a="down">Product telemetry</div>
+    </div>
+    <div class="lane ret"><h3>RETAIN</h3><div class="sub">must stay</div></div>
+  </div>
+</section>
+
+<section class="scene" id="c3_retain">
+  <div class="lanes">
+    <div class="lane del"><h3>DELETE</h3><div class="sub">remove the whole record</div>
+      <div class="chip">User profile</div><div class="chip">Search index entry</div><div class="chip">Cache entry</div>
+      <div class="chip">User export</div><div class="chip">Marketing profile</div><div class="chip">Support attachment<small>belongs only to this person</small></div>
+    </div>
+    <div class="lane mid"><h3>REDACT / ANONYMIZE</h3><div class="sub">keep the record, change it</div>
+      <div class="minihead">Redact: remove names &amp; emails</div>
+      <div class="chip">Shared support message</div><div class="chip">Email delivery log</div>
+      <div class="minihead" style="margin-top:18px;">Anonymize: cut the link</div>
+      <div class="chip">Analytics profile</div><div class="chip">Product telemetry</div>
+    </div>
+    <div class="lane ret"><h3>RETAIN</h3><div class="sub">must stay</div>
+      <div class="chip" data-in="c1" data-a="left">Security audit log<small>inside its retention period</small></div>
+      <div class="chip" data-in="c2" data-a="left">Legal hold record<small>while the hold is active</small></div>
+      <div class="chip" data-in="c3" data-a="left">Backup archive<small>only if restore can be blocked</small></div>
+      <div class="pill b" style="align-self:center; margin-top:14px; font-size:30px;" data-in="c3+1.2" data-a="pop">&#128274; restore blocked</div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c3_tombstone">
+  <div class="row" style="height:100%; gap:70px; justify-content:center;">
+    <div class="tomb" data-in="0" data-a="up">
+      <div style="text-align:center; font-size:38px; font-weight:800; letter-spacing:.1em; margin-bottom:34px;">ACCOUNT TOMBSTONE</div>
+      <div class="tfield hl green-hl" data-in="c1" data-a="hl"><span class="k">user_id</span><span class="v mono">user_123</span><span class="icon-ok" data-in="c1+0.3" data-a="pop">&#10003;</span></div>
+      <div class="tfield"><span class="k">name</span><span class="v strike" data-in="c2" data-a="strike" data-dur="0.4">Alex Example</span></div>
+      <div class="tfield"><span class="k">email</span><span class="v strike mono" style="font-size:32px;" data-in="c2+0.45" data-a="strike" data-dur="0.4">alex@example.com</span></div>
+      <div class="tfield"><span class="k">phone</span><span class="v strike mono" style="font-size:32px;" data-in="c2+0.9" data-a="strike" data-dur="0.4">+00 000 0000</span></div>
+      <div class="tfield"><span class="k">email_hash</span><span class="v strike mono" style="font-size:32px;" data-in="c2+1.35" data-a="strike" data-dur="0.4">9f2c&hellip;e41a</span></div>
+    </div>
+    <div class="col" style="width:560px; gap:26px;">
+      <div class="body" data-in="c1+0.6" data-a="left">Keeps only the <b class="green">internal user id</b>&hellip;</div>
+      <div class="small muted" data-in="c1+1.4" data-a="left">so retained records (for example a security audit log) still point somewhere</div>
+      <div class="body" data-in="c2+0.3" data-a="left">&hellip;and removes every <b class="red">direct identifier</b></div>
+      <div class="small muted" data-in="c2+2.4" data-a="fade">(illustration with made-up values)</div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c3_complete">
+  <div class="center" style="align-items:flex-start; padding-left:260px; gap:22px;">
+    <h2 data-in="0" data-a="up" style="margin-bottom:24px;">&ldquo;Complete&rdquo; means all three:</h2>
+    <div class="check" data-in="c1" data-a="left"><span class="icon-ok">&#10003;</span>Every copy got the right treatment</div>
+    <div class="check" data-in="c2" data-a="left"><span class="icon-ok">&#10003;</span>Nothing can re-create the data (no sync, no restore)</div>
+    <div class="check" data-in="c3" data-a="left"><span class="icon-ok">&#10003;</span>What must be kept is still there</div>
+  </div>
+</section>
+
+<!-- ===================================================================== chapter 4 -->
+<section class="scene" id="c4_pipeline">
+  <div class="stage">
+    <div class="pipe" data-in="0" data-a="up">
+      <div class="box hl" data-in="c1" data-a="hl" data-out="c2"><div class="n">1</div><div class="t">Deletion request?</div></div>
+      <div class="box hl" data-in="c2" data-a="hl" data-out="c3"><div class="n">2</div><div class="t">Who is this person?</div></div>
+      <div class="box hl" data-in="c3" data-a="hl" data-out="c4"><div class="n">3</div><div class="t">Read all evidence</div></div>
+      <div class="box hl" data-in="c4" data-a="hl" data-out="c5"><div class="n">4</div><div class="t">Which records are theirs?</div></div>
+      <div class="box hl" data-in="c5" data-a="hl" data-out="c6"><div class="n">5</div><div class="t">State at audit time + rules</div></div>
+      <div class="box hl" data-in="c6" data-a="hl"><div class="n">6</div><div class="t">Write the steps</div></div>
+    </div>
+    <div class="panel" data-in="c1" data-a="up" data-out="c2" data-outdur="0.3">
+      <div class="col" style="gap:22px;">
+        <div class="quote">&ldquo;The mobile number on my profile is out of date. Please replace it&hellip;&rdquo;</div>
+        <div class="quote">&ldquo;Please stop the promotional emails. I still need the account&hellip;&rdquo;</div>
+        <div class="row" style="gap:30px; margin-top:12px;"><span class="pill n">NOT_APPLICABLE</span><span class="body mono">steps_json = []</span>
+          <span class="body muted">10 requests: case_533 &ndash; case_542</span></div>
+      </div>
+    </div>
+    <div class="panel" data-in="c2+0.2" data-a="up" data-out="c3" data-outdur="0.3">
+      <div class="row" style="gap:26px; margin-top:20px;">
+        <div class="node mono" style="font-size:30px;">request email<br><span class="small muted" style="font-family:Inter;">may be an old one</span></div>
+        <span class="arrow">&rarr;</span>
+        <div class="node">history file<br><span class="small muted mono">user_audit_log.csv</span></div>
+        <span class="arrow">&rarr;</span>
+        <div class="col" style="gap:12px;">
+          <div class="node">current email &middot; old emails</div>
+          <div class="node">current phone &middot; old phones</div>
+          <div class="node">email hashes</div>
+        </div>
+        <span class="arrow">&rarr;</span>
+        <div class="node mono" style="border-color:var(--green); font-size:34px;">one user_id</div>
+      </div>
+    </div>
+    <div class="panel" data-in="c3+0.2" data-a="up" data-out="c4" data-outdur="0.3">
+      <div class="row" style="gap:22px; margin-top:20px;">
+        <div class="col" style="gap:12px;">
+          <div class="node">SQL snapshots &amp; replicas</div><div class="node">Logs (5 formats)</div>
+          <div class="node">JSON exports</div><div class="node">PDFs &amp; screenshots</div>
+        </div>
+        <span class="arrow">&rarr;</span>
+        <div class="card mono" style="font-size:34px; border-color:var(--blue); line-height:1.6;">Observation(<br>&nbsp;&nbsp;resource, time,<br>&nbsp;&nbsp;identifiers, state )</div>
+      </div>
+    </div>
+    <div class="panel" data-in="c4+0.2" data-a="up" data-out="c5" data-outdur="0.3">
+      <div class="row" style="gap:30px; margin-top:40px;">
+        <div class="node" style="border-color:var(--green); font-size:36px;">the person<br><span class="small muted">all their identifiers</span></div>
+        <span class="arrow">&rarr;</span>
+        <div class="row" style="gap:14px; flex-wrap:wrap; width:1100px;">
+          <span class="chip">account</span><span class="chip">search document</span><span class="chip">support ticket</span>
+          <span class="chip">export file</span><span class="chip">analytics row</span><span class="chip">data flow</span><span class="chip">backup</span>
+          <span class="chip" style="opacity:.45; text-decoration:line-through;">someone else&rsquo;s look-alike record</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel" data-in="c5+0.2" data-a="up" data-out="c6" data-outdur="0.3">
+      <div style="position:relative; height:200px; margin-top:30px;">
+        <div style="position:absolute; left:0; width:1150px; top:60px; height:12px; border-radius:6px; background:var(--blue);"></div>
+        <div style="position:absolute; left:1150px; right:0; top:60px; height:12px; border-radius:6px; background:repeating-linear-gradient(45deg,#3a4470 0 14px,#1d2645 14px 28px);"></div>
+        <div style="position:absolute; left:1144px; top:20px; width:12px; height:90px; border-radius:6px; background:var(--amber);"></div>
+        <div class="dot" style="left:200px; top:66px; background:var(--green);"></div>
+        <div class="dot" style="left:560px; top:66px; background:var(--green);"></div>
+        <div class="dot" style="left:900px; top:66px; background:var(--green);"></div>
+        <div class="dot" style="left:1400px; top:66px; background:var(--grey);"></div>
+        <div class="small" style="position:absolute; left:0; top:120px;">evidence captured by audit_at &rarr; used</div>
+        <div class="small amber" style="position:absolute; left:1060px; top:120px; font-weight:800;">audit_at</div>
+        <div class="small muted" style="position:absolute; left:1300px; top:120px;">later &rarr; ignored</div>
+      </div>
+      <div class="body" style="margin-top:20px;">then apply <span class="mono">deletion_rules.csv</span> to every record</div>
+    </div>
+    <div class="panel" data-in="c6+0.2" data-a="up">
+      <div class="row" style="margin-top:60px; justify-content:center;">
+        <span class="phase" style="background:rgba(248,113,113,.15); color:var(--red);">FINDING</span><span class="arrow">&rarr;</span>
+        <span class="phase" style="background:rgba(251,191,36,.13); color:var(--amber);">REMEDIATION</span><span class="arrow">&rarr;</span>
+        <span class="phase" style="background:rgba(52,211,153,.13); color:var(--green);">VERIFICATION</span>
+      </div>
+      <div class="body muted" style="text-align:center; margin-top:40px;">stop flows and block restores first, then fix records, then check</div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c4_design">
+  <div class="stage">
+    <div class="pipe" style="margin-top:40px;">
+      <div class="box" style="border-color:var(--purple);"><div class="n">1</div><div class="t">Deletion request?</div><span class="badge model" data-in="c2" data-a="pop">MODEL</span></div>
+      <div class="box"><div class="n">2</div><div class="t">Who is this person?</div><span class="badge code" data-in="c1" data-a="pop">CODE</span></div>
+      <div class="box"><div class="n">3</div><div class="t">Read all evidence</div><span class="badge code" data-in="c1+0.2" data-a="pop">CODE</span></div>
+      <div class="box"><div class="n">4</div><div class="t">Which records are theirs?</div><span class="badge code" data-in="c1+0.4" data-a="pop">CODE</span></div>
+      <div class="box"><div class="n">5</div><div class="t">State at audit time + rules</div><span class="badge code" data-in="c1+0.6" data-a="pop">CODE</span></div>
+      <div class="box"><div class="n">6</div><div class="t">Write the steps</div><span class="badge code" data-in="c1+0.8" data-a="pop">CODE</span></div>
+    </div>
+    <div class="col" style="gap:44px; margin-top:110px; padding-left:40px; font-size:46px;">
+      <div style="font-size:46px;" data-in="c1+0.6" data-a="left"><span class="badge code" style="position:static; font-size:30px;">CODE</span>&nbsp; steps 2&ndash;6: repeatable, testable, same answer every run</div>
+      <div style="font-size:46px;" data-in="c2+0.3" data-a="left"><span class="badge model" style="position:static; font-size:30px;">MODEL</span>&nbsp; step 1 only: reads a request written in any language</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== chapter 5 -->
+<section class="scene" id="c5_noname">
+  <div class="stage">
+    <div class="row" style="gap:60px; justify-content:center; margin-top:10px;">
+      <div class="card" style="width:760px; height:400px;" data-in="c1" data-a="up">
+        <div class="small muted mono">account_service</div>
+        <div class="mono" style="font-size:36px; margin-top:24px;">GET /profile/account_&hellip;</div>
+        <div style="font-size:72px; font-weight:900; margin-top:30px;" class="red">404 Not found</div>
+        <div class="small muted" style="margin-top:20px;">no email, no name, no phone</div>
+      </div>
+      <div class="card" style="width:760px; height:400px;" data-in="c2" data-a="up">
+        <div class="small muted mono">analytics_platform</div>
+        <div class="tbl" style="margin-top:24px;">
+          <div class="th">resource_id &middot; email &middot; phone &middot; cohort</div>
+          <div class="td">analytics_&hellip; &middot; <span class="muted">null</span> &middot; <span class="muted">null</span> &middot; anonymized</div>
+        </div>
+        <div class="small muted" style="margin-top:30px;">already anonymized: no identifiers left</div>
+      </div>
+    </div>
+    <div style="text-align:center; font-size:110px; font-weight:900; margin-top:10px;" class="amber" data-in="c2+1.2" data-a="pop">Whose?</div>
+    <div class="banner y" style="position:absolute; left:200px; right:200px; bottom:0;" data-in="c3" data-a="up">We still have to report them.</div>
+  </div>
+</section>
+
+<section class="scene" id="c5_timeline">
+  <div class="stage" id="tl5">
+    <div class="small muted" data-in="0" data-a="fade">deletion_worker rows in the activity log &rarr; time</div>
+    <div class="tl" style="top:360px;"></div>
+    <div class="mark" style="left:520px; top:290px; height:140px;"></div>
+    <div class="mark" style="left:1040px; top:290px; height:140px;"></div>
+    <div class="mark" style="left:1560px; top:290px; height:140px;"></div>
+    <div class="mlabel" style="left:520px; top:450px;"><b class="blue">case A</b> reported<br><span class="mono small">COMPLETE</span></div>
+    <div class="mlabel" style="left:1040px; top:450px;"><b class="amber">case B</b> reported<br><span class="mono small">PARTIALLY_COMPLETE</span></div>
+    <div class="mlabel" style="left:1560px; top:450px;"><b style="color:var(--pink)">case C</b> reported<br><span class="mono small">NOT_STARTED</span></div>
+    <div class="pill g" style="position:absolute; left:250px; top:170px; font-size:30px;" data-in="c2" data-a="pop">SUCCESS</div>
+    <div class="pill y" style="position:absolute; left:780px; top:170px; font-size:30px;" data-in="c2+0.5" data-a="pop">PARTIAL</div>
+    <div class="pill r" style="position:absolute; left:1300px; top:170px; font-size:30px;" data-in="c2+1.0" data-a="pop">FAILED</div>
+    <div class="small muted" style="position:absolute; left:0; top:600px;" data-in="c2+1.6" data-a="fade">result in the log &harr; status the workflow reported</div>
+    <div id="dots5"></div>
+  </div>
+</section>
+
+<section class="scene" id="c5_offset">
+  <div class="stage" id="off5">
+    <h2 data-in="c1" data-a="up">Timing fingerprint <span class="small muted" style="font-weight:500;">(schematic)</span></h2>
+    <div class="small muted" style="margin-top:14px;" data-in="c1+0.3" data-a="fade">two cases, same report time &middot; seconds offset of each row from its case&rsquo;s account row</div>
+    <div style="position:absolute; left:0; right:0; top:200px; height:440px;" data-in="0.2" data-a="fade">
+      <div class="small" style="position:absolute; left:0; top:105px; width:200px;"><b class="blue">case A</b></div>
+      <div class="small" style="position:absolute; left:0; top:285px; width:200px;"><b style="color:var(--pink)">case B</b></div>
+      <div style="position:absolute; left:220px; right:0; top:120px; height:4px; background:var(--line);"></div>
+      <div style="position:absolute; left:220px; right:0; top:300px; height:4px; background:var(--line);"></div>
+      <div class="small muted" style="position:absolute; left:220px; top:390px;">0 s</div>
+      <div class="small muted" style="position:absolute; right:0; top:390px;">59 s</div>
+      <div id="ticks5"></div>
+      <div id="odots5"></div>
+    </div>
+    <div class="banner b" style="position:absolute; left:120px; right:120px; bottom:0; font-size:36px;" data-in="c3" data-a="up">Offsets are learned from the data itself &mdash; never from the answer key</div>
+  </div>
+</section>
+
+<section class="scene" id="c5_example">
+  <div class="stage">
+    <div class="row" style="gap:60px; justify-content:center;">
+      <div class="card" style="width:780px;" data-in="0" data-a="up">
+        <div class="small muted">reported 2026-09-02 12:00</div>
+        <div class="pair mono" data-in="c1" data-a="left"><span>case_25</span><span class="arrow">&rarr;</span><span class="blue">account_3136</span></div>
+        <div class="pair mono" data-in="c1+0.6" data-a="left"><span>case_26</span><span class="arrow">&rarr;</span><span class="blue">account_5684</span></div>
+      </div>
+      <div class="card" style="width:780px;" data-in="0.8" data-a="up">
+        <div class="small muted">reported 2026-08-30 12:00</div>
+        <div class="pair mono" data-in="c2" data-a="left"><span>case_27</span><span class="arrow">&rarr;</span><span class="blue">account_3866</span></div>
+        <div class="pair mono" data-in="c2+0.6" data-a="left"><span>case_28</span><span class="arrow">&rarr;</span><span class="blue">account_5482</span></div>
+      </div>
+    </div>
+    <div class="small muted" style="text-align:center; margin-top:30px;" data-in="c2+1.2" data-a="fade">public samples &middot; each pair shares one report time</div>
+    <div class="banner y" style="position:absolute; left:200px; right:200px; bottom:0;" data-in="c3" data-a="up">A strong clue, not a proof &rarr; listed as a limit</div>
+  </div>
+</section>
+
+<!-- ===================================================================== chapter 6 -->
+<section class="scene" id="c6_case">
+  <div class="stage">
+    <div class="row" style="gap:30px;" data-in="0" data-a="up"><h1 class="mono" style="font-size:70px;">case_05</h1><span class="body muted">Leila Haddad</span></div>
+    <div class="quote" style="margin-top:30px; font-size:34px; width:1500px;" data-in="c1" data-a="up">&ldquo;I deleted this account and received a confirmation, but the same email address is still recognized. Please remove any remaining copy of my profile.&rdquo;</div>
+    <div style="position:absolute; left:80px; right:80px; top:500px; height:12px; border-radius:6px; background:var(--line);" data-in="c1" data-a="fade"></div>
+    <div style="position:absolute; left:80px; right:80px; top:480px;">
+      <div class="tlpt" style="left:4%;" data-in="c1+0.5" data-a="up"><div class="d" style="background:var(--blue);"></div><div class="small"><b>27 Aug</b> 14:17<br>request</div></div>
+      <div class="tlpt" style="left:12%; top:-150px;" data-in="c2" data-a="down"><div class="small" style="margin-bottom:14px;"><b>28 Aug</b> 09:03<br>workflow: <span class="green">COMPLETE</span></div><div class="d" style="background:var(--green);"></div></div>
+      <div class="tlpt" style="left:96%;" data-in="c3" data-a="up"><div class="d" style="background:var(--amber);"></div><div class="small"><b>8 Sep</b> 13:40<br><span class="amber">audit time</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c6_snapshots">
+  <div class="row" style="gap:50px; align-items:stretch;">
+    <div class="db" style="width:780px;" data-in="0" data-a="up">
+      <div class="hd"><span class="mono">evidence_90</span></div>
+      <div class="meta">account service snapshot &middot; captured 5 Sep 07:18<br><span class="mono">customer_data_inventory_20260905.sql</span></div>
+      <div class="tbl"><div class="th">customer_profiles</div><div class="td muted" style="text-align:center; padding:40px;">(no rows)</div></div>
+      <div class="row" style="gap:20px; margin-top:30px; font-size:36px; font-weight:700;" data-in="c1" data-a="pop"><span class="icon-ok">&#10003;</span>naive check: &ldquo;done&rdquo;</div>
+    </div>
+    <div class="db" style="width:930px;" data-in="c2" data-a="up">
+      <div class="hd"><span class="mono">evidence_54</span></div>
+      <div class="meta">failover replica &middot; captured 2 Sep 23:00<br><span class="mono">customer_accounts_failover_replica_20260902.sql</span></div>
+      <div class="tbl"><div class="th">customer_profiles_failover_replica</div>
+        <div class="td hl red-hl" style="margin:8px;" data-in="c2+2.4" data-a="hl">account_005 &middot; user_05 &middot; Leila Haddad<br>leila.haddad@yahoo.com<br>+212 6 48 27 15 93 &middot; ACTIVE</div></div>
+      <div class="row" style="gap:20px; margin-top:22px; font-size:36px; font-weight:700;" data-in="c2+3.4" data-a="pop"><span class="icon-no">&#10007;</span><span class="red">still present</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c6_verdict">
+  <div class="stage">
+    <h2 style="text-align:center;" data-in="0" data-a="up">A snapshot proves absence only for <span class="amber">its own</span> store</h2>
+    <div class="row" style="gap:60px; justify-content:center; margin-top:70px;">
+      <div class="card" style="width:640px; text-align:center;" data-in="0.6" data-a="up"><div class="small muted">account service &middot; evidence_90</div><div class="body green" style="margin-top:16px; font-weight:800;">&#10003; absent</div></div>
+      <div class="card" style="width:640px; text-align:center; border-color:var(--red);" data-in="1.0" data-a="up"><div class="small muted">failover replica &middot; evidence_54</div><div class="body red" style="margin-top:16px; font-weight:800;">&#10007; present</div></div>
+    </div>
+    <div class="stamp" style="left:560px; top:420px; transform:rotate(-6deg);" data-in="c1+0.6" data-a="pop">INCOMPLETE</div>
+  </div>
+</section>
+
+<section class="scene" id="c6_steps">
+  <div class="stage">
+    <div class="steps" data-in="0" data-a="fade">
+      <div class="h">#</div><div class="h">phase</div><div class="h">system_id</div><div class="h">resource_id</div><div class="h">operation</div><div class="h">state</div><div class="h">evidence_id</div>
+    </div>
+    <div class="steps" data-in="c1" data-a="left">
+      <div>1</div><div class="red">FINDING</div><div>account_service</div><div>account_005</div><div>REPORT_REMAINING_RECORD</div><div>PRESENT</div><div class="green">evidence_54</div>
+    </div>
+    <div class="steps" data-in="c2" data-a="left">
+      <div>2</div><div class="amber">REMEDIATION</div><div>account_service</div><div>account_005</div><div>DELETE_RECORD</div><div>ABSENT</div><div class="hl" data-in="c4" data-a="hl">&quot;&quot;</div>
+    </div>
+    <div class="steps" data-in="c3" data-a="left">
+      <div>3</div><div class="green">VERIFICATION</div><div>account_service</div><div>account_005</div><div>VERIFY_RECORD_ABSENT</div><div>ABSENT</div><div class="hl" data-in="c4+0.3" data-a="hl">&quot;&quot;</div>
+    </div>
+    <div class="banner b" style="position:absolute; left:300px; right:0; bottom:20px; font-size:36px;" data-in="c4+0.6" data-a="up">Fix and check describe future work &rarr; empty evidence_id</div>
+  </div>
+</section>
+
+<!-- ===================================================================== chapter 7 -->
+<section class="scene" id="c7_scores">
+  <div class="stage">
+    <div class="small muted" data-in="0" data-a="fade">32 public samples &middot; code/evaluation/evaluation_report.md</div>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:34px; margin-top:60px;">
+      <div class="tile" data-in="c1" data-a="up"><div class="v green" data-count="100" data-fmt="pct1" data-in="c1" data-dur="0.9">0</div><div class="l">status accuracy</div></div>
+      <div class="tile" data-in="c2" data-a="up"><div class="v green" data-count="100" data-fmt="pct1" data-in="c2" data-dur="0.9">0</div><div class="l">step precision</div></div>
+      <div class="tile" data-in="c3" data-a="up"><div class="v green" data-count="98.4" data-fmt="pct1" data-in="c3" data-dur="0.9">0</div><div class="l">step recall</div></div>
+      <div class="tile" data-in="c4" data-a="up"><div class="v blue" data-count="29" data-fmt="of32" data-in="c4" data-dur="0.9">0</div><div class="l">exact, in order</div></div>
+    </div>
+    <div class="small muted" style="text-align:center; margin-top:60px;" data-in="c4+1.2" data-a="fade">190 of 193 expected steps found &middot; 0 extra steps</div>
+  </div>
+</section>
+
+<section class="scene" id="c7_misses">
+  <div class="stage">
+    <h2 data-in="0" data-a="up">The 3 missed steps</h2>
+    <div class="row" style="gap:40px; margin-top:50px;">
+      <div class="card mono" style="flex:1; font-size:38px; text-align:center;" data-in="0.6" data-a="up">account_004<div class="small muted" style="font-family:Inter; margin-top:12px;">case_04</div></div>
+      <div class="card mono" style="flex:1; font-size:38px; text-align:center;" data-in="1.2" data-a="up">audit_record_6645<div class="small muted" style="font-family:Inter; margin-top:12px;">case_18</div></div>
+      <div class="card mono" style="flex:1; font-size:38px; text-align:center;" data-in="1.8" data-a="up">audit_record_5569<div class="small muted" style="font-family:Inter; margin-top:12px;">case_20</div></div>
+    </div>
+    <div class="body" style="margin-top:50px; text-align:center;" data-in="c1" data-a="up">Each id appears only in the answer key (<span class="mono">sample_output.csv</span>), in no evidence at all.</div>
+    <div class="banner g" style="margin:40px auto 0; width:900px;" data-in="c1+2.2" data-a="pop">We don&rsquo;t guess ids.</div>
+  </div>
+</section>
+
+<section class="scene" id="c7_validator">
+  <div class="stage">
+    <h2 data-in="0" data-a="up">518 real cases &middot; no answer key</h2>
+    <div class="body muted" style="margin-top:14px;" data-in="0.8" data-a="up">we claim consistency with the spec, not a percentage</div>
+    <div class="col" style="margin-top:50px;">
+      <div class="check" data-in="c1" data-a="left"><span class="icon-ok">&#10003;</span>Format: 518 rows, valid JSON, allowed operations only</div>
+      <div class="check" data-in="c2" data-a="left"><span class="icon-ok">&#10003;</span>Order: sorted cases, steps 1..n, FINDING &rarr; REMEDIATION &rarr; VERIFICATION</div>
+      <div class="check" data-in="c3" data-a="left"><span class="icon-ok">&#10003;</span>Time: no cited evidence is newer than audit_at</div>
+    </div>
+    <div class="card mono" style="margin-top:40px; font-size:32px; display:inline-block;" data-in="c3+1.4" data-a="up">$ python3 code/evaluation/validate_output.py<br><span class="green">518 rows, 0 problems</span></div>
+  </div>
+</section>
+
+<section class="scene" id="c7_mistake">
+  <div class="stage">
+    <div class="small muted" data-in="0" data-a="fade">sample status accuracy</div>
+    <div class="row" style="gap:30px; margin-top:20px;" data-in="0.3" data-a="fade">
+      <div class="small" style="width:330px;">first model run</div>
+      <div class="bar-bg" style="flex:1;"><div class="bar" style="width:68.8%; background:var(--red);" data-in="c1" data-a="grow" data-dur="1"></div></div>
+      <div class="body red" style="width:180px; font-weight:800;" data-in="c1+0.8" data-a="fade">68.8%</div>
+    </div>
+    <div class="row" style="gap:30px; margin-top:20px;" data-in="c4" data-a="fade">
+      <div class="small" style="width:330px;">after the fix</div>
+      <div class="bar-bg" style="flex:1;"><div class="bar" style="width:100%; background:var(--green);" data-in="c4" data-a="grow" data-dur="1"></div></div>
+      <div class="body green" style="width:180px; font-weight:800;" data-in="c4+0.8" data-a="fade">100%</div>
+    </div>
+    <div class="row" style="gap:40px; margin-top:44px; align-items:flex-start;">
+      <div class="col" style="gap:16px; width:780px;" data-in="c2" data-a="up">
+        <div class="quote">a real request asking to verify an account is gone</div>
+        <div class="row small" style="gap:16px;"><span class="mono">gpt-4o-mini:</span><span class="pill r" style="font-size:26px;">&#10007; not a deletion request</span></div>
+        <div class="small muted">&rarr; the whole case emptied</div>
+      </div>
+      <div class="col" style="gap:14px; flex:1;">
+        <div class="small" data-in="c3" data-a="left"><b class="green">1</b>&nbsp; rewrote the classifier prompt</div>
+        <div class="small" data-in="c3+1.4" data-a="left"><b class="green">2</b>&nbsp; no veto without an explicit decline</div>
+        <div class="small" data-in="c3+3.4" data-a="left"><b class="green">3</b>&nbsp; deterministic guard after the model</div>
+        <div class="small amber" style="margin-top:10px; font-weight:700;" data-in="c4+1.2" data-a="left">a model that rejects everything still yields exactly case_533 &ndash; case_542</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c7_cost">
+  <div class="stage">
+    <div class="small muted" data-in="0" data-a="fade">final full run &middot; code/evaluation/usage_report.md &middot; gpt-4o-mini, request classification only</div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:34px; margin-top:60px;">
+      <div class="tile" data-in="c1" data-a="up"><div class="v blue" data-count="375" data-fmt="int" data-in="c1" data-dur="1">0</div><div class="l">model calls</div></div>
+      <div class="tile" data-in="c2" data-a="up"><div class="v blue" data-count="146396" data-fmt="int" data-in="c2" data-dur="1.2">0</div><div class="l">tokens (134,378 in &middot; 12,018 out)</div></div>
+      <div class="tile" data-in="c3" data-a="up"><div class="v green" data-count="0.0274" data-fmt="usd4" data-in="c3" data-dur="1">0</div><div class="l">total cost (about 2.7 cents)</div></div>
+    </div>
+    <div class="banner g" style="margin:50px auto 0; width:1200px;" data-in="c4" data-a="pop">&#10003; output identical to the no-model run</div>
+  </div>
+</section>
+
+<!-- ===================================================================== chapter 8 -->
+<section class="scene" id="c8_limits">
+  <div class="stage">
+    <h2 data-in="0" data-a="up">Known limits</h2>
+    <div class="col" style="margin-top:40px; gap:8px;">
+      <div class="check" data-in="c1" data-a="left"><span class="icon-warn">!</span>Records that appear nowhere cannot be reported</div>
+      <div class="check" data-in="c2" data-a="left"><span class="icon-warn">!</span>Timing match can pair wrongly when cases share a report time</div>
+      <div class="check" data-in="c3" data-a="left"><span class="icon-warn">!</span>The model path was only checked against the samples</div>
+      <div class="check" data-in="c4" data-a="left"><span class="icon-warn">!</span>The vision fallback (screenshots) is untested</div>
+    </div>
+  </div>
+</section>
+
+<section class="scene" id="c8_q1"><div class="center"><div class="flipwrap"><div class="flip" data-in="c1-0.2" data-a="flip" data-dur="0.7">
+  <div class="face front"><div class="qn blue">Likely question 1 of 7</div><div class="qt">How do you know it works with no answer key?</div></div>
+  <div class="face back"><div class="qn green" style="text-transform:none; letter-spacing:0; font-size:34px; color:var(--muted);">How do you know it works with no answer key?</div><div class="at">32 samples &middot; 4 hand-built cases &middot; a validator &middot; a second no-model run that must be identical &middot; independent testers.<br><b>We never claim a percentage on the 518.</b></div></div>
+</div></div></div></section>
+
+<section class="scene" id="c8_q2"><div class="center"><div class="flipwrap"><div class="flip" data-in="c1-0.2" data-a="flip" data-dur="0.7">
+  <div class="face front"><div class="qn blue">Likely question 2 of 7</div><div class="qt">What does the model do?</div></div>
+  <div class="face back"><div class="qn green" style="text-transform:none; letter-spacing:0; font-size:34px; color:var(--muted);">What does the model do?</div><div class="at">Only decides whether a request asks for deletion.<br><b>Everything else is code</b>: repeatable output, costs cents.</div></div>
+</div></div></div></section>
+
+<section class="scene" id="c8_q3"><div class="center"><div class="flipwrap"><div class="flip" data-in="c1-0.2" data-a="flip" data-dur="0.7">
+  <div class="face front"><div class="qn blue">Likely question 3 of 7</div><div class="qt">Why not let the model read all the evidence?</div></div>
+  <div class="face back"><div class="qn green" style="text-transform:none; letter-spacing:0; font-size:34px; color:var(--muted);">Why not let the model read all the evidence?</div><div class="at">Cost, repeatability, and models easily get ordering and evidence ids wrong.<br><b>Code can be tested.</b></div></div>
+</div></div></div></section>
+
+<section class="scene" id="c8_q4"><div class="center"><div class="flipwrap"><div class="flip" data-in="c1-0.2" data-a="flip" data-dur="0.7">
+  <div class="face front"><div class="qn blue">Likely question 4 of 7</div><div class="qt">How do you handle replica drift?</div></div>
+  <div class="face back"><div class="qn green" style="text-transform:none; letter-spacing:0; font-size:34px; color:var(--muted);">How do you handle replica drift?</div><div class="at">State is tracked <b>per store</b>.<br>Any store still holding the record keeps it non-compliant.</div></div>
+</div></div></div></section>
+
+<section class="scene" id="c8_q5"><div class="center"><div class="flipwrap"><div class="flip" data-in="c1-0.2" data-a="flip" data-dur="0.7">
+  <div class="face front"><div class="qn blue">Likely question 5 of 7</div><div class="qt">What about evidence from the future?</div></div>
+  <div class="face back"><div class="qn green" style="text-transform:none; letter-spacing:0; font-size:34px; color:var(--muted);">What about evidence from the future?</div><div class="at">Anything captured after <span class="mono">audit_at</span> is <b>never used for state</b> and <b>never cited</b>.</div></div>
+</div></div></div></section>
+
+<section class="scene" id="c8_q6"><div class="center"><div class="flipwrap"><div class="flip" data-in="c1-0.2" data-a="flip" data-dur="0.7">
+  <div class="face front"><div class="qn blue">Likely question 6 of 7</div><div class="qt">How are records without identifiers matched?</div></div>
+  <div class="face back"><div class="qn green" style="text-transform:none; letter-spacing:0; font-size:34px; color:var(--muted);">How are records without identifiers matched?</div><div class="at">Activity-log clusters near the report time, matched by result, elimination and a self-calibrated seconds offset.<br><b class="amber">The part most likely to lose points.</b></div></div>
+</div></div></div></section>
+
+<section class="scene" id="c8_q7"><div class="center"><div class="flipwrap"><div class="flip" data-in="c1-0.2" data-a="flip" data-dur="0.7">
+  <div class="face front"><div class="qn blue">Likely question 7 of 7</div><div class="qt">What would you do next?</div></div>
+  <div class="face back"><div class="qn green" style="text-transform:none; letter-spacing:0; font-size:34px; color:var(--muted);">What would you do next?</div><div class="at">Add more evidence-grounded checks for those timing matches, and test the vision fallback.</div></div>
+</div></div></div></section>
+
+<section class="scene" id="c8_close">
+  <div class="stage">
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:30px; margin-top:20px;">
+      <div class="tile" data-in="0.1" data-a="up"><div class="v blue">518</div><div class="l">requests audited</div></div>
+      <div class="tile" data-in="0.5" data-a="up"><div class="v green">100%</div><div class="l">status accuracy (samples)</div></div>
+      <div class="tile" data-in="0.9" data-a="up"><div class="v green">98.4%</div><div class="l">step recall (samples)</div></div>
+      <div class="tile" data-in="1.3" data-a="up"><div class="v green">$0.027</div><div class="l">model cost, 375 calls</div></div>
+    </div>
+    <div style="text-align:center; margin-top:80px;" data-in="c1" data-a="up">
+      <h1>Don&rsquo;t trust &ldquo;Complete&rdquo;.</h1>
+      <h1 class="green" style="margin-top:10px;">Check every copy.</h1>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const ease = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+  const lerp = (a, b, p) => a + (b - a) * p;
+  let TL = null, current = null;
+  const HOOKS = {};
+  const sec = (id) => document.getElementById(id);
+
+  // time spec: "1.2" (seconds from scene start) or "c2" / "c2+0.4" / "c1-0.2" (relative to a cue)
+  function specTime(spec, cues) {
+    const m = String(spec).trim().match(/^c(\d+)\s*([+-]\s*[\d.]+)?$/);
+    if (!m) return parseFloat(spec);
+    const c = cues[m[1]];
+    if (c === undefined) return NaN;
+    return c + (m[2] ? parseFloat(m[2].replace(/\s/g, '')) : 0);
+  }
+
+  function prepare(section) {
+    // expand data-stagger="c1,0.6" onto children that carry no data-in of their own
+    section.querySelectorAll('[data-stagger]').forEach((p) => {
+      const [base, step] = p.dataset.stagger.split(',');
+      [...p.querySelectorAll('[data-a]')].filter((el) => !el.dataset.in).forEach((el, i) => {
+        el.dataset.in = `${base}+${(i * parseFloat(step)).toFixed(3)}`;
+      });
+    });
+    // count-up elements without an animation type still need data-in
+    return [...section.querySelectorAll('[data-in]')];
+  }
+
+  window.__init = (tl) => {
+    TL = tl;
+    const missing = [];
+    document.getElementById('tnum').textContent = tl.chapter;
+    document.getElementById('ttitle').textContent = tl.title;
+    document.getElementById('ttag').textContent = tl.tag;
+    TL.sections = {};
+    const all = [{ id: 'title', start: 0, end: tl.scenes[0].start, cues: {} }].concat(tl.scenes);
+    for (const s of all) {
+      const el = sec(s.id);
+      if (!el) { missing.push(s.id); continue; }
+      if (s.id !== 'title' && !el.querySelector('.hdr')) {
+        const h = document.createElement('div');
+        h.className = 'hdr';
+        h.innerHTML = `<span>Chapter ${tl.chapter} &middot; <b>${tl.title}</b></span><span class="tag">${tl.tag}</span>`;
+        el.prepend(h);
+      }
+      const els = prepare(el);
+      for (const e of els) {
+        for (const k of ['in', 'out']) {
+          if (e.dataset[k] && isNaN(specTime(e.dataset[k], s.cues))) missing.push(`${s.id}: cue ${e.dataset[k]}`);
+        }
+      }
+      TL.sections[s.id] = { s, el, els };
+    }
+    // the scene list should use every cue it defines and nothing more
+    return missing;
+  };
+
+  function apply(e, p, q) {
+    const a = e.dataset.a || 'fade';
+    let op = 1, tf = '';
+    switch (a) {
+      case 'fade': op = p; break;
+      case 'up': op = p; tf = `translateY(${(1 - p) * 40}px)`; break;
+      case 'down': op = p; tf = `translateY(${(1 - p) * -40}px)`; break;
+      case 'left': op = p; tf = `translateX(${(1 - p) * -60}px)`; break;
+      case 'right': op = p; tf = `translateX(${(1 - p) * 60}px)`; break;
+      case 'pop': op = clamp(p * 2); tf = `scale(${0.6 + 0.4 * p + Math.sin(p * Math.PI) * 0.08})`; break;
+      case 'strike': case 'hl': case 'draw': e.style.setProperty('--p', p.toFixed(4)); break;
+      case 'grow': tf = `scaleX(${p})`; break;
+      case 'flip': tf = `rotateY(${p * 180}deg)`; break;
+    }
+    if (q > 0) {
+      if (a === 'hl') e.style.setProperty('--p', (p * (1 - q)).toFixed(4));
+      else op *= 1 - q;
+    }
+    e.style.opacity = op.toFixed(4);
+    if (tf || e.style.transform) e.style.transform = tf;
+  }
+
+  const fmt = {
+    int: (v) => Math.round(v).toLocaleString('en-US'),
+    pct1: (v) => v.toFixed(1) + '%',
+    usd4: (v) => '$' + v.toFixed(4),
+    of32: (v) => Math.round(v) + ' / 32',
+  };
+
+  window.__seek = (t) => {
+    let id = 'title';
+    for (const s of TL.scenes) if (t >= s.start) id = s.id;
+    const S = TL.sections[id];
+    if (current !== id) {
+      if (current) TL.sections[current].el.classList.remove('on');
+      S.el.classList.add('on');
+      current = id;
+    }
+    const ts = t - S.s.start;
+    const enter = ease(ts / 0.35);
+    S.el.style.opacity = enter.toFixed(4);
+    const key = [id, enter.toFixed(3)];
+    for (const e of S.els) {
+      const t0 = specTime(e.dataset.in, S.s.cues);
+      const dur = parseFloat(e.dataset.dur || (e.dataset.a === 'pop' ? 0.45 : 0.6));
+      const p = ease((ts - t0) / dur);
+      let q = 0;
+      if (e.dataset.out) q = ease((ts - specTime(e.dataset.out, S.s.cues)) / parseFloat(e.dataset.outdur || 0.4));
+      if (e.dataset.count) {
+        const v = parseFloat(e.dataset.count) * p;
+        e.textContent = fmt[e.dataset.fmt](v);
+        key.push(e.textContent);
+      } else {
+        apply(e, p, q);
+      }
+      key.push(p.toFixed(3), q.toFixed(3));
+    }
+    if (HOOKS[id]) key.push(HOOKS[id](ts, S.s.cues, S.el));
+    return key.join('|');
+  };
+
+  // ------------------------------------------------------------------ hooks
+  function centerOf(el, stage) {
+    const r = el.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return [r.left - s.left + r.width / 2, r.top - s.top + r.height / 2];
+  }
+  function moveAlong(mag, pts, p) {
+    const n = pts.length - 1, x = clamp(p) * n, i = Math.min(Math.floor(x), n - 1), f = ease(x - i);
+    const px = lerp(pts[i][0], pts[i + 1][0], f), py = lerp(pts[i][1], pts[i + 1][1], f);
+    mag.style.left = (px - 60) + 'px';
+    mag.style.top = (py - 60) + 'px';
+    return px.toFixed(0) + ',' + py.toFixed(0);
+  }
+
+  HOOKS.c1_systems = (ts, cues, root) => {
+    const stage = root.querySelector('.stage');
+    const cards = [...root.querySelectorAll('#sysgrid .sys')];
+    const pts = cards.map((c) => centerOf(c, stage));
+    pts.unshift([pts[0][0] - 120, pts[0][1]]);
+    // the magnifier reaches card i when its "record found" appears (stagger 0.62 s from c1)
+    const p = (ts - (cues[1] - 0.62)) / (0.62 * pts.length);
+    return moveAlong(root.querySelector('#mag1'), pts, p);
+  };
+
+  HOOKS.c1_inspector = (ts, cues, root) => {
+    const stage = root.querySelector('#rooms').parentElement;
+    const rooms = [...root.querySelectorAll('#rooms .room')];
+    const pts = rooms.map((c) => centerOf(c, stage).map((v, k) => v - (k ? 40 : 60)));
+    pts.unshift([pts[0][0] - 160, pts[0][1]]);
+    const p = (ts - (cues[2] - 0.2)) / (0.7 * pts.length);
+    return moveAlong(root.querySelector('#mag2'), pts, p);
+  };
+
+  // deterministic pseudo-random numbers so every render is identical
+  function rng(seed) { return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+
+  const TLDOTS = [];
+  (() => {
+    const r = rng(7), colors = ['var(--blue)', 'var(--amber)', 'var(--pink)'], marks = [520, 1040, 1560];
+    for (let c = 0; c < 3; c++) for (let k = 0; k < 4; k++) {
+      TLDOTS.push({ color: colors[c], x0: 80 + r() * 1640, y0: 250 + r() * 220, x1: marks[c] - 210 + k * 46 + r() * 10, y1: 362 });
+    }
+  })();
+  HOOKS.c5_timeline = (ts, cues, root) => {
+    const box = root.querySelector('#dots5');
+    if (!box.children.length) TLDOTS.forEach((d) => { const e = document.createElement('div'); e.className = 'dot'; e.style.background = d.color; box.appendChild(e); });
+    const p = ease((ts - cues[1]) / 1.6);
+    [...box.children].forEach((e, i) => {
+      const d = TLDOTS[i];
+      e.style.left = lerp(d.x0, d.x1, p) + 'px';
+      e.style.top = lerp(d.y0, d.y1, p) + 'px';
+    });
+    return p.toFixed(3);
+  };
+
+  const OFF = [];
+  (() => {
+    const r = rng(11), W = 1480, X0 = 220, lanes = [120, 300];
+    const offsets = [[0, 17, 41], [0, 9, 33]];             // schematic offsets per case
+    for (let c = 0; c < 2; c++) for (let k = 0; k < 3; k++) for (let j = 0; j < 3; j++) {
+      OFF.push({ c, x0: X0 + r() * W, y0: 40 + r() * 340, x1: X0 + (offsets[c][k] / 59) * W, y1: lanes[c] + 2 - j * 0 + (j - 1) * 0 });
+    }
+  })();
+  HOOKS.c5_offset = (ts, cues, root) => {
+    const box = root.querySelector('#odots5'), ticks = root.querySelector('#ticks5');
+    if (!ticks.children.length) {
+      for (let s = 0; s <= 59; s += 1) {
+        const e = document.createElement('div'); e.className = 'ruler-tick';
+        e.style.left = (220 + (s / 59) * 1480) + 'px'; e.style.top = (s % 5 ? 112 : 104) + 'px';
+        e.style.height = (s % 5 ? 16 : 32) + 'px'; ticks.appendChild(e);
+        const f = e.cloneNode(); f.style.top = (s % 5 ? 292 : 284) + 'px'; ticks.appendChild(f);
+      }
+    }
+    if (!box.children.length) OFF.forEach((d) => { const e = document.createElement('div'); e.className = 'dot'; e.style.background = d.c ? 'var(--pink)' : 'var(--blue)'; box.appendChild(e); });
+    const p = ease((ts - cues[2]) / 1.4);
+    [...box.children].forEach((e, i) => {
+      const d = OFF[i], jitter = (1 - p) * 0;
+      e.style.left = lerp(d.x0, d.x1, p) + jitter + 'px';
+      e.style.top = lerp(d.y0, d.y1, p) + 'px';
+    });
+    return p.toFixed(3);
+  };
+})();
+</script>
+</body>
+</html>

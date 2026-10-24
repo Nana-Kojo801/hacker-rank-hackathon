@@ -3,3 +3,9 @@ __pycache__/
 .env
 .cache/
 code.zip
+
+# explainer video: rendered media, narration cache and build intermediates
+video/*.mp4
+video/cache/
+video/build/
+video/render.log
