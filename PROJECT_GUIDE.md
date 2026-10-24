@@ -216,7 +216,7 @@ cited evidence. The fixed sort gives flow/restore changes before record changes.
 | output validity | 518 rows, 0 problems | format, order, evidence rules, no evidence newer than `audit_at` |
 | determinism | byte-identical across runs, cold cache, hash seeds | QA-verified |
 | output mix | 353 INCOMPLETE, 155 COMPLETE, 10 NOT_APPLICABLE | 3,264-step output, 1,164 cited steps (QA count at the earlier commit) |
-| model run | 375 calls, `gpt-4o-mini`, 146,396 tokens (~283 per request), ~USD 0.027 | one call per distinct request text |
+| model run | 375 calls, `gpt-4o-mini`, 146,416 tokens (~283 per request), ~USD 0.027 | one call per distinct request text |
 | model effect on output | none (identical to no-model run) | model only triages requests |
 
 **The three sample misses**: `account_004`, `audit_record_6645`, `audit_record_5569`. Each appears nowhere in participant
@@ -364,7 +364,7 @@ entry per turn, required by `AGENTS.md`).
 11. **What would you do with another week?** Ground the identifier-less matching with extra evidence checks, model
     dependencies between copies, flag conflicts like `case_63` in the output, test the vision fallback, and measure on a
     held-out set.
-12. **How much did it cost?** 375 `gpt-4o-mini` calls, 146,396 tokens, about 2.7 cents, around 283 tokens per request.
+12. **How much did it cost?** 375 `gpt-4o-mini` calls, 146,416 tokens, about 2.7 cents, around 283 tokens per request.
 13. **How is it deterministic?** No sampling in the core, temperature 0 on the model call, stable sorting, results cached;
     two runs (and a cold-cache run) are byte-identical.
 14. **How did you use AI to build it?** Claude Code wrote and tested it; every turn is logged in `log.txt`; independent
@@ -377,7 +377,7 @@ entry per turn, required by `AGENTS.md`).
 
 518 requests - 32 samples - 850 users - 4,011 activity events - 94 evidence files - 15 rules - 10 non-deletion cases
 (533-542) - 353 / 155 / 10 (incomplete / complete / not applicable) - samples 100% status, 100% precision, 98.4% recall,
-29/32 exact - 375 model calls, 146,396 tokens, ~USD 0.027 - 3 unrecoverable sample steps - 31 statuses fixed by the
+29/32 exact - 375 model calls, 146,416 tokens, ~USD 0.027 - 3 unrecoverable sample steps - 31 statuses fixed by the
 `collection_name` bug fix - 68.8% -> 100% after the classifier fix.
 
 ## 13. Glossary

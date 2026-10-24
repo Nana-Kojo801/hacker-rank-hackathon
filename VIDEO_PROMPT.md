@@ -97,7 +97,7 @@ that no evidence newer than the audit time is cited. The mistake: our first mode
 68.8 percent. gpt-4o-mini wrongly labelled real requests, such as "I deleted my account, please verify it is gone", as not
 deletion requests, emptying those cases. We rewrote the prompt, made the model unable to veto without an explicit decline,
 and added a deterministic guard; even a model that rejects everything now yields exactly cases 533 to 542. The final run:
-375 model calls, 146,396 tokens, about 2.7 cents, output identical to the no-model run. Visual: a score card, a red 68.8%
+375 model calls, 146,416 tokens, about 2.7 cents, output identical to the no-model run. Visual: a score card, a red 68.8%
 bar turning into 100%, a cost counter.
 
 ### Chapter 8 - Limits and the questions you will be asked (interview language, ~2 min)
